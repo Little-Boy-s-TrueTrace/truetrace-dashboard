@@ -56,7 +56,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        package-manager-cache: false
 
     - name: Install Frontend Dependencies
       run: |
@@ -84,7 +83,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '22'
-        package-manager-cache: false
 
     - name: Install Frontend Dependencies
       run: |
@@ -146,7 +144,11 @@ jobs:
         ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
         IMAGE_TAG: latest
       run: |
-        docker buildx build --platform linux/arm64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} --push .
+        docker buildx build \
+          --platform linux/arm64 \
+          -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+          -t "$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" \
+          --push .
 
     - name: Force ECS Service Rolling Update
       run: |
