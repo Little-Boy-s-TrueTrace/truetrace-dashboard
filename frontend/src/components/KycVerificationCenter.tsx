@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { KycSession } from '../types';
-import { Search, Filter, CheckCircle, XCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
 

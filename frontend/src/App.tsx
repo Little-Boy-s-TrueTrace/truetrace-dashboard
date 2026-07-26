@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, LayoutDashboard, UserCheck, AlertTriangle, FileText, Activity, Clock, LogOut, User, RefreshCw, Layers } from 'lucide-react';
+import { LayoutDashboard, UserCheck, AlertTriangle, FileText, Activity, Clock, LogOut, User, RefreshCw, Layers } from 'lucide-react';
 import { ComplianceOverview } from './components/ComplianceOverview';
 import { KycVerificationCenter } from './components/KycVerificationCenter';
 import { AmlAlertsDashboard } from './components/AmlAlertsDashboard';

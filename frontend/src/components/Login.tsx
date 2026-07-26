@@ -59,7 +59,7 @@ export default function Login({ onLoginSuccess }: Props) {
         setErrorMsg(data.error || 'Failed to request login token.');
       }
     } catch {
-      setErrorMsg('Unable to connect to authentication server.');
+      setErrorMsg('Unable to connect to security authentication server.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +68,7 @@ export default function Login({ onLoginSuccess }: Props) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token.trim()) {
-      setErrorMsg('Token is required.');
+      setErrorMsg('SHA-256 Token is required.');
       return;
     }
     setErrorMsg('');
@@ -133,7 +133,7 @@ export default function Login({ onLoginSuccess }: Props) {
 
               <button type="submit" disabled={loading} className="mt-2 w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white py-2.5 rounded-lg font-medium transition-colors">
                 {loading ? <RefreshCw size={18} className="animate-spin" /> : <KeyRound size={18} />}
-                Request Access Token
+                Request Login Token
               </button>
             </form>
           ) : (
@@ -157,7 +157,7 @@ export default function Login({ onLoginSuccess }: Props) {
                   className="bg-slate-900/80 border border-slate-700 rounded-lg text-slate-200 px-4 py-2.5 focus:outline-none focus:border-cyan-500 w-full font-mono text-center text-sm"
                   value={token}
                   onChange={e => setToken(e.target.value)}
-                  placeholder="Paste Token Here"
+                  placeholder="Paste 64-character Token Here"
                   disabled={loading}
                   autoFocus
                 />

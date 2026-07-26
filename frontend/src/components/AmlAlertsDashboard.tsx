@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AmlAlert } from '../types';
-import { ShieldAlert, Search, Filter, AlertTriangle, ArrowRight, ArrowDown, Activity, ChevronRight, CheckCircle, Clock } from 'lucide-react';
+import { ShieldAlert, Search, Filter, AlertTriangle, ArrowRight, Activity, ChevronRight, Clock } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
 
@@ -105,7 +105,7 @@ export const AmlAlertsDashboard: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Transaction Chain Timeline</h3>
                   <div className="space-y-4">
-                    {alert.transactionChain?.map((tx, idx) => (
+                    {alert.transactionChain?.map((tx) => (
                       <div key={tx.txId} className="relative pl-6 border-l-2 border-slate-700 pb-2">
                         <div className="absolute w-3 h-3 bg-cyan-500 rounded-full -left-[7px] top-1"></div>
                         <div className="bg-slate-800 p-3 rounded-lg border border-slate-700 flex justify-between items-center text-sm">
