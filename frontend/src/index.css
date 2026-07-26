@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+
+@layer base {
+  :root {
+    --bg-canvas: #0f172a;
+    --bg-surface: #1e293b;
+    --accent: #06b6d4;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+  }
+  
+  body {
+    @apply bg-slate-900 text-slate-300 font-sans antialiased;
+    background: radial-gradient(ellipse at top right, #0f172a, #020617);
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-slate-800/50 backdrop-blur-md border border-slate-700/50 shadow-xl;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
+}
+
+/* Score Gauge Styles */
+.score-gauge-ring {
+  transition: stroke-dashoffset 0.5s ease-in-out;
+}
