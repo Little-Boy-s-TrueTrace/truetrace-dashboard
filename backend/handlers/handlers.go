@@ -11,11 +11,13 @@ import (
 )
 
 var BackendURL = "http://localhost:8080" // default, can be overridden by env var
+var BackendInternalToken string
 
 func init() {
 	if url := os.Getenv("BACKEND_URL"); url != "" {
 		BackendURL = url
 	}
+	BackendInternalToken = os.Getenv("TRUETRACE_SECURITY_SYNC_TOKEN")
 }
 
 // Helper to write JSON response
@@ -43,6 +45,9 @@ func proxyRequest(w http.ResponseWriter, r *http.Request, path string) {
 		for _, v := range vv {
 			req.Header.Add(k, v)
 		}
+	}
+	if BackendInternalToken != "" {
+		req.Header.Set("X-TrueTrace-Internal-Token", BackendInternalToken)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
