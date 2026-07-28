@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { KycSession } from '../types';
 import { Search, Filter, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const KycVerificationCenter: React.FC = () => {
   const [sessions, setSessions] = useState<KycSession[]>([]);
@@ -82,8 +82,8 @@ export const KycVerificationCenter: React.FC = () => {
                     <td className="p-4 font-medium text-slate-200">{session.customerName}</td>
                     <td className="p-4 text-slate-400 font-mono">{session.cccdNumber}</td>
                     <td className="p-4">{getStatusBadge(session.status)}</td>
-                    <td className={`p-4 font-medium ${getScoreColor(session.deepfakeScore, true)}`}>{session.deepfakeScore.toFixed(1)}%</td>
-                    <td className={`p-4 font-medium ${getScoreColor(session.faceMatchScore)}`}>{session.faceMatchScore.toFixed(1)}%</td>
+                    <td className={`p-4 font-medium ${getScoreColor(session.deepfakeScore, true)}`}>{(session.deepfakeScore ?? 0).toFixed(1)}%</td>
+                    <td className={`p-4 font-medium ${getScoreColor(session.faceMatchScore)}`}>{(session.faceMatchScore ?? 0).toFixed(1)}%</td>
                     <td className="p-4 text-slate-300">{session.riskLevel}</td>
                     <td className="p-4 text-slate-400 whitespace-nowrap">{new Date(session.createdAt).toLocaleDateString()}</td>
                     <td className="p-4 text-right">
@@ -109,11 +109,11 @@ export const KycVerificationCenter: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="bg-slate-800 p-3 rounded border border-slate-700">
                                 <div className="text-xs text-slate-500 mb-1">Document Integrity</div>
-                                <div className={`text-lg font-bold ${getScoreColor(session.documentIntegrityScore)}`}>{session.documentIntegrityScore.toFixed(1)}%</div>
+                                <div className={`text-lg font-bold ${getScoreColor(session.documentIntegrityScore)}`}>{(session.documentIntegrityScore ?? 0).toFixed(1)}%</div>
                               </div>
                               <div className="bg-slate-800 p-3 rounded border border-slate-700">
                                 <div className="text-xs text-slate-500 mb-1">Liveness Score</div>
-                                <div className={`text-lg font-bold ${getScoreColor(session.livenessScore)}`}>{session.livenessScore.toFixed(1)}%</div>
+                                <div className={`text-lg font-bold ${getScoreColor(session.livenessScore)}`}>{(session.livenessScore ?? 0).toFixed(1)}%</div>
                               </div>
                               <div className="bg-slate-800 p-3 rounded border border-slate-700 col-span-2 flex items-center justify-between">
                                 <div className="text-sm text-slate-300">CCCD Validation</div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { StrReport } from '../types';
 import { Search, Filter, FileText, Send, Printer, FileDown } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const StrReportManager: React.FC = () => {
   const [reports, setReports] = useState<StrReport[]>([]);

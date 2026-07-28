@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AgentStatus } from '../types';
 import { Server, Activity, ArrowRight, Zap, RefreshCw, Cpu, Database, Network } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const AgentMonitor: React.FC = () => {
   const [agents, setAgents] = useState<AgentStatus[]>([]);

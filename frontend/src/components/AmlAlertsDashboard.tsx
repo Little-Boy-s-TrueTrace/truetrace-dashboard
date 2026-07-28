@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AmlAlert } from '../types';
 import { ShieldAlert, Search, Filter, AlertTriangle, ArrowRight, Activity, ChevronRight, Clock } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const AmlAlertsDashboard: React.FC = () => {
   const [alerts, setAlerts] = useState<AmlAlert[]>([]);
@@ -70,7 +70,7 @@ export const AmlAlertsDashboard: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-lg border flex flex-col items-center justify-center ${getRiskColor(alert.riskScore)}`}>
                   <span className="text-xs font-medium">Risk</span>
-                  <span className="text-lg font-bold leading-none">{alert.riskScore.toFixed(1)}</span>
+                  <span className="text-lg font-bold leading-none">{(alert.riskScore ?? 0).toFixed(1)}</span>
                 </div>
                 <div>
                   <div className="flex items-center gap-3 mb-1">
@@ -162,7 +162,7 @@ export const AmlAlertsDashboard: React.FC = () => {
                     <p className="text-sm text-slate-400 leading-relaxed">
                       Detected {alert.alertType.toLowerCase().replace(/_/g, ' ')} behavior over a {alert.timeWindowSeconds / 60}-minute window.
                       The primary account rapidly aggregated funds from {alert.involvedAccounts?.length || 0} distinct sources before attempting outbound transfers.
-                      Risk score computed as {alert.riskScore.toFixed(1)}/10 based on transaction velocity and untrusted counterparty history.
+                      Risk score computed as {(alert.riskScore ?? 0).toFixed(1)}/10 based on transaction velocity and untrusted counterparty history.
                     </p>
                   </div>
 
