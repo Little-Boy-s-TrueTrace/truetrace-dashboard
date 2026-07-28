@@ -102,28 +102,28 @@ export const StrReportManager: React.FC = () => {
                 <div className="max-w-4xl mx-auto bg-slate-100 p-8 rounded-lg text-slate-800 font-serif shadow-xl">
                   {/* Official Header */}
                   <div className="text-center mb-8 border-b-2 border-slate-300 pb-4">
-                    <h2 className="text-xl font-bold uppercase">BÁO CÁO GIAO DỊCH ĐÁNG NGỜ (STR)</h2>
-                    <p className="text-sm text-slate-600 mt-2">Kính gửi: Cục Phòng, chống rửa tiền - Ngân hàng Nhà nước Việt Nam</p>
+                    <h2 className="text-xl font-bold uppercase">SUSPICIOUS TRANSACTION REPORT (STR)</h2>
+                    <p className="text-sm text-slate-600 mt-2">To: Anti-Money Laundering Department - State Bank of Vietnam</p>
                   </div>
 
                   <div className="space-y-6 text-sm">
                     {/* Section 1 */}
                     <section>
-                      <h3 className="font-bold text-lg mb-2 text-slate-900">I. THÔNG TIN TỔ CHỨC BÁO CÁO</h3>
+                      <h3 className="font-bold text-lg mb-2 text-slate-900">I. REPORTING ORGANIZATION INFORMATION</h3>
                       <div className="grid grid-cols-2 gap-2 pl-4">
-                        <div className="font-medium">Tên tổ chức:</div><div>Ngân hàng TMCP TrueTrace</div>
-                        <div className="font-medium">Mã số thuế:</div><div>0100123456</div>
-                        <div className="font-medium">Người lập báo cáo:</div><div>Hệ thống AI - TrueTrace Command Center</div>
+                        <div className="font-medium">Organization name:</div><div>TrueTrace Commercial Bank</div>
+                        <div className="font-medium">Tax code:</div><div>0100123456</div>
+                        <div className="font-medium">Report prepared by:</div><div>AI System - TrueTrace Command Center</div>
                       </div>
                     </section>
 
                     {/* Section 2 */}
                     <section>
-                      <h3 className="font-bold text-lg mb-2 text-slate-900">II. THÔNG TIN KHÁCH HÀNG NGHI VẤN</h3>
+                      <h3 className="font-bold text-lg mb-2 text-slate-900">II. SUSPECTED CUSTOMER INFORMATION</h3>
                       <div className="grid grid-cols-2 gap-2 pl-4">
-                        <div className="font-medium">Họ và tên:</div><div>{report.subjectFullName}</div>
-                        <div className="font-medium">Số CMND/CCCD:</div><div>{report.subjectCccdNumber}</div>
-                        <div className="font-medium">Tổng giá trị giao dịch:</div>
+                        <div className="font-medium">Full name:</div><div>{report.subjectFullName}</div>
+                        <div className="font-medium">ID/CCCD number:</div><div>{report.subjectCccdNumber}</div>
+                        <div className="font-medium">Total transaction value:</div>
                         <div className="font-bold text-red-600">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(report.totalAmount)}
                         </div>
@@ -132,7 +132,7 @@ export const StrReportManager: React.FC = () => {
 
                     {/* Section 3 */}
                     <section>
-                      <h3 className="font-bold text-lg mb-2 text-slate-900">III. MÔ TẢ GIAO DỊCH VÀ PHÂN TÍCH (Do AI Sinh Ra)</h3>
+                      <h3 className="font-bold text-lg mb-2 text-slate-900">III. TRANSACTION DESCRIPTION AND ANALYSIS (AI-Generated)</h3>
                       <div className="pl-4 bg-slate-50 p-4 rounded border border-slate-200 text-justify leading-relaxed whitespace-pre-wrap">
                         {report.narrativeTextVi}
                       </div>

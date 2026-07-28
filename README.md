@@ -1,19 +1,19 @@
 # TrueTrace Compliance Command Center
 
-Ứng dụng dành cho chuyên viên KYC/AML:
+Application for KYC/AML compliance officers:
 
-- tổng quan KYC, deepfake, AML alert, STR và tài khoản đang đóng băng;
-- danh sách hồ sơ KYC cùng điểm liveness/face-match/deepfake;
-- AML alert và đồ thị dòng tiền;
-- STR draft song ngữ chờ chuyên viên duyệt;
-- trạng thái ba TrueTrace agent.
+- Overview of KYC, deepfake, AML alerts, STR, and frozen accounts;
+- List of KYC cases with liveness/face-match/deepfake scores;
+- AML alerts and money flow graph;
+- Bilingual STR drafts awaiting officer review;
+- Status of the three TrueTrace agents.
 
-## Cấu trúc
+## Structure
 
-- `backend/`: Go gateway/auth service, proxy tới TrueTrace Spring Boot API.
-- `frontend/`: React, TypeScript và Vite command center.
+- `backend/`: Go gateway/auth service, proxies to TrueTrace Spring Boot API.
+- `frontend/`: React, TypeScript, and Vite command center.
 
-## Chạy local
+## Running Locally
 
 Backend:
 
@@ -30,12 +30,11 @@ npm ci
 npm run dev
 ```
 
-Frontend chạy tại `http://localhost:3001/soc/`, Go API tại
-`http://localhost:8082`. Biến `BACKEND_URL` trỏ Go gateway tới core API.
+Frontend runs at `http://localhost:3001/soc/`, Go API at `http://localhost:8082`. The `BACKEND_URL` variable points the Go gateway to the core API.
 
-## API được dashboard sử dụng
+## APIs Used by the Dashboard
 
-| Màn hình | Core API |
+| Screen | Core API |
 |---|---|
 | KYC | `/api/kyc/sessions` |
 | AML | `/api/aml/alerts` |
@@ -43,7 +42,7 @@ Frontend chạy tại `http://localhost:3001/soc/`, Go API tại
 | Overview | `/api/compliance/stats` |
 | Agent fleet | `/api/agents/status` |
 
-## Kiểm thử
+## Testing
 
 ```bash
 cd backend
@@ -56,5 +55,4 @@ npm run build
 npm run lint
 ```
 
-Không đưa dashboard ra Internet trực tiếp. Production phải đặt sau gateway/TLS,
-thay secret mặc định, giới hạn CORS và dùng secret manager.
+Do not expose the dashboard directly to the internet. Production must be placed behind a gateway/TLS, replace default secrets, restrict CORS, and use a secret manager.

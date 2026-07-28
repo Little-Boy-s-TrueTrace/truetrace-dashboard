@@ -87,7 +87,7 @@ func (db *Database) seedDemoData() {
 		Currency:          "USD",
 		RiskLevel:         "high",
 		RiskScore:         0.92,
-		NarrativeTextVi:   "Hoạt động đáng ngờ liên quan đến rửa tiền.",
+		NarrativeTextVi:   "Suspicious activity related to money laundering.",
 		NarrativeTextEn:   "Suspicious activity related to money laundering.",
 		GeneratedAt:       time.Now().Add(-30 * time.Minute),
 	})
