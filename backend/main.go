@@ -8,6 +8,7 @@ import (
 	"strings"
 	"dashboard/backend/consumer"
 	"dashboard/backend/handlers"
+	"dashboard/backend/store"
 )
 
 func corsMiddleware(next http.Handler) http.Handler {
@@ -27,6 +28,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	store.InitStore()
 	consumer.StartKafkaConsumer(context.Background())
 
 	mux := http.NewServeMux()

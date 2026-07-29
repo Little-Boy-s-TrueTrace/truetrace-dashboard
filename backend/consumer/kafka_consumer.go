@@ -143,23 +143,28 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 
 	// Determine risk based on amount thresholds (VND) and velocity
 	riskScore := 0.0
-	alertType := "transaction_monitor"
+	alertType := "STANDARD"
 	switch {
 	case txCount >= 5: // >= 5 transactions in 60 seconds
 		riskScore = 0.90
-		alertType = "velocity_anomaly"
+		alertType = "VELOCITY_ANOMALY"
 	case amount >= 1_000_000_000: // >= 1 billion VND
 		riskScore = 0.95
-		alertType = "high_value_transfer"
+		alertType = "RAPID_MOVEMENT"
 	case amount >= 500_000_000: // >= 500 million VND
 		riskScore = 0.75
-		alertType = "large_transfer"
+		alertType = "STRUCTURING"
 	case amount >= 100_000_000: // >= 100 million VND
 		riskScore = 0.50
-		alertType = "medium_transfer"
+		alertType = "MULE_SPLIT"
 	default:
 		riskScore = 0.15
-		alertType = "standard_transfer"
+		alertType = "STANDARD"
+	}
+
+	if alertType == "STANDARD" {
+		// Skip creating an alert for standard transfers
+		return
 	}
 
 	// Create an AML alert entry for SOC visibility
@@ -173,7 +178,7 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 		TriggerTransactionID: txID,
 		PrimaryAccountNumber: tx.SourceAccountNumber,
 		AlertType:            alertType,
-		Status:               "open",
+		Status:               "OPEN",
 		RiskScore:            riskScore,
 		TotalAmount:          amount,
 		Currency:             "VND",
@@ -205,10 +210,15 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 	}
 	store.DB.AmlAlerts = append(store.DB.AmlAlerts, alert)
 
-	// Update compliance stats
-	store.DB.ComplianceStats.AmlAlertsRaised++
+	// ComplianceStats are now dynamic, no manual increment needed
 
 	store.DB.Mu.Unlock()
+
+	if store.UsePostgres {
+		if err := store.SaveAmlAlert(alert); err != nil {
+			log.Printf("[Kafka Consumer] Failed to persist AML alert to DB: %v", err)
+		}
+	}
 
 	log.Printf("[Kafka Consumer] Created AML alert %s for transaction %s (risk=%.2f type=%s)",
 		alertID, txID, riskScore, alertType)
@@ -231,7 +241,7 @@ func handleKycEvent(ctx context.Context, msg kafka.Message) {
 		SessionID:         kyc.SessionID,
 		CustomerID:        kyc.CustomerID,
 		CustomerName:      kyc.CustomerName,
-		Status:            "pending_review",
+		Status:            "MANUAL_REVIEW",
 		CCCDNumber:        kyc.CCCDNumber,
 		CCCDValid:         false,
 		RiskLevel:         "pending",
@@ -239,8 +249,14 @@ func handleKycEvent(ctx context.Context, msg kafka.Message) {
 		CreatedAt:         time.Now(),
 	}
 	store.DB.KycSessions = append(store.DB.KycSessions, session)
-	store.DB.ComplianceStats.TotalKycProcessed++
+	// We no longer manually update ComplianceStats here since it's dynamic
 	store.DB.Mu.Unlock()
+
+	if store.UsePostgres {
+		if err := store.SaveKycSession(session); err != nil {
+			log.Printf("[Kafka Consumer] Failed to persist KYC session to DB: %v", err)
+		}
+	}
 
 	log.Printf("[Kafka Consumer] Created KYC session %s for review", kyc.SessionID)
 }

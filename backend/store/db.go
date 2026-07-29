@@ -26,9 +26,9 @@ func InitDB() {
 			port = "5432"
 		}
 		if host != "" && user != "" && name != "" {
-			dsn = "host=" + host + " port=" + port + " user=" + user + " password='" + pass + "' dbname=" + name + " sslmode=require"
+			dsn = "host=" + host + " port=" + port + " user=" + user + " password='" + pass + "' dbname=" + name + " sslmode=disable"
 		} else {
-			dsn = "host=localhost port=5432 user=postgres password=1 dbname=truetrace sslmode=disable"
+			dsn = "host=localhost port=5432 user=postgres password='change_me_in_production' dbname=truetrace sslmode=disable"
 		}
 	}
 
