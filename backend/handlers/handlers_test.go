@@ -1,108 +1,211 @@
 package handlers
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
-func TestGetKycSessions(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/kyc", nil)
-	w := httptest.NewRecorder()
-
-	GetKycSessions(w, req)
-
-	// Returns 502 since the backend is not running during tests
-	// This validates the handler exists and runs without panic
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("Expected status 502 (backend not available), got %d", w.Code)
-	}
+type proxyCapture struct {
+	method        string
+	path          string
+	query         string
+	body          string
+	internalToken string
 }
 
-func TestGetKycSessionDetail(t *testing.T) {
-	t.Run("Valid path", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/kyc/session-001", nil)
-		w := httptest.NewRecorder()
-		GetKycSessionDetail(w, req)
-		if w.Code != http.StatusBadGateway {
-			t.Errorf("Expected status 502, got %d", w.Code)
-		}
-	})
-
-	t.Run("Invalid path (too short)", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api", nil)
-		w := httptest.NewRecorder()
-		GetKycSessionDetail(w, req)
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status 400, got %d", w.Code)
-		}
+func withBackend(t *testing.T, responder http.HandlerFunc) {
+	t.Helper()
+	server := httptest.NewServer(responder)
+	oldURL := BackendURL
+	oldToken := BackendInternalToken
+	oldClient := backendHTTPClient
+	BackendURL = server.URL
+	BackendInternalToken = "integration-test-token"
+	backendHTTPClient = server.Client()
+	t.Cleanup(func() {
+		server.Close()
+		BackendURL = oldURL
+		BackendInternalToken = oldToken
+		backendHTTPClient = oldClient
 	})
 }
 
-func TestGetAmlAlerts(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/aml", nil)
-	w := httptest.NewRecorder()
-	GetAmlAlerts(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("Expected status 502, got %d", w.Code)
+func captureRequest(r *http.Request) proxyCapture {
+	body, _ := io.ReadAll(r.Body)
+	return proxyCapture{
+		method:        r.Method,
+		path:          r.URL.Path,
+		query:         r.URL.RawQuery,
+		body:          string(body),
+		internalToken: r.Header.Get("X-TrueTrace-Internal-Token"),
 	}
 }
 
-func TestGetAmlAlertDetail(t *testing.T) {
-	t.Run("Valid path", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/aml/alert-001", nil)
-		w := httptest.NewRecorder()
-		GetAmlAlertDetail(w, req)
-		if w.Code != http.StatusBadGateway {
-			t.Errorf("Expected status 502, got %d", w.Code)
-		}
+func TestComplianceListsProxySpringSourceOfTruth(t *testing.T) {
+	tests := []struct {
+		name     string
+		request  string
+		wantPath string
+		handler  http.HandlerFunc
+	}{
+		{"KYC", "/api/kyc?status=APPROVED", "/api/kyc/sessions", GetKycSessions},
+		{"AML", "/api/aml?status=OPEN", "/api/aml/alerts", GetAmlAlerts},
+		{"STR", "/api/str?status=DRAFT", "/api/str/reports", GetStrReports},
+		{"stats", "/api/compliance/stats", "/api/compliance/stats", GetComplianceStats},
+		{"agents", "/api/agents/status", "/api/agents/status", GetAgentStatuses},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var got proxyCapture
+			withBackend(t, func(w http.ResponseWriter, r *http.Request) {
+				got = captureRequest(r)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`[{"source":"spring-postgres"}]`))
+			})
+
+			request := httptest.NewRequest(http.MethodGet, test.request, nil)
+			recorder := httptest.NewRecorder()
+			test.handler(recorder, request)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+			}
+			if got.method != http.MethodGet || got.path != test.wantPath {
+				t.Fatalf("unexpected upstream request: %+v", got)
+			}
+			if got.query != request.URL.RawQuery {
+				t.Fatalf("query was not preserved: got %q want %q", got.query, request.URL.RawQuery)
+			}
+			if got.internalToken != "integration-test-token" {
+				t.Fatalf("internal token not forwarded: %+v", got)
+			}
+			if recorder.Body.String() != `[{"source":"spring-postgres"}]` {
+				t.Fatalf("upstream body not preserved: %q", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestComplianceActionsPreserveMethodPathAndBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		method   string
+		path     string
+		body     string
+		wantPath string
+		handler  http.HandlerFunc
+	}{
+		{"approve KYC", http.MethodPost, "/api/kyc/kyc-123/approve", "", "/api/kyc/sessions/kyc-123/approve", GetKycSessionDetail},
+		{"reject KYC", http.MethodPost, "/api/kyc/kyc-123/reject", "", "/api/kyc/sessions/kyc-123/reject", GetKycSessionDetail},
+		{"update KYC", http.MethodPut, "/api/kyc/kyc-123/status", `{"status":"MANUAL_REVIEW"}`, "/api/kyc/sessions/kyc-123/status", GetKycSessionDetail},
+		{"escalate alert", http.MethodPost, "/api/aml/alert-123/escalate", "", "/api/aml/alerts/alert-123/escalate", GetAmlAlertDetail},
+		{"close alert", http.MethodPost, "/api/aml/alert-123/close", "", "/api/aml/alerts/alert-123/close", GetAmlAlertDetail},
+		{"update alert", http.MethodPut, "/api/aml/alert-123/status", `{"status":"INVESTIGATING"}`, "/api/aml/alerts/alert-123/status", GetAmlAlertDetail},
+		{"freeze account", http.MethodPost, "/api/aml/freeze/1000000001", "", "/api/aml/freeze/1000000001", GetAmlAlertDetail},
+		{"unfreeze account", http.MethodPost, "/api/aml/unfreeze/1000000001", "", "/api/aml/unfreeze/1000000001", GetAmlAlertDetail},
+		{"review STR", http.MethodPut, "/api/str/str-123/status", `{"status":"READY_FOR_REVIEW"}`, "/api/str/reports/str-123/status", GetStrReportDetail},
+		{"submit STR", http.MethodPost, "/api/str/str-123/submit", "", "/api/str/reports/str-123/submit", GetStrReportDetail},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var got proxyCapture
+			withBackend(t, func(w http.ResponseWriter, r *http.Request) {
+				got = captureRequest(r)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				_, _ = w.Write([]byte(`{"persisted":true}`))
+			})
+
+			request := httptest.NewRequest(test.method, test.path, bytes.NewBufferString(test.body))
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			test.handler(recorder, request)
+
+			if recorder.Code != http.StatusAccepted {
+				t.Fatalf("expected upstream status 202, got %d: %s", recorder.Code, recorder.Body.String())
+			}
+			if got.method != test.method || got.path != test.wantPath || got.body != test.body {
+				t.Fatalf("method/path/body not preserved: got %+v", got)
+			}
+			if recorder.Body.String() != `{"persisted":true}` {
+				t.Fatalf("upstream response body not preserved: %q", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestGetAmlAlertGraphUsesSpringAlertGraphData(t *testing.T) {
+	var gotPath string
+	withBackend(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"alertId":"alert-9","graphData":{"nodes":[{"id":"mule"}],"edges":[]}}`))
 	})
 
-	t.Run("Invalid path", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api", nil)
-		w := httptest.NewRecorder()
-		GetAmlAlertDetail(w, req)
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status 400, got %d", w.Code)
+	request := httptest.NewRequest(http.MethodGet, "/api/aml/alert-9/graph", nil)
+	recorder := httptest.NewRecorder()
+	GetAmlAlertGraph(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if gotPath != "/api/aml/alerts/alert-9" {
+		t.Fatalf("unexpected path %s", gotPath)
+	}
+	if recorder.Body.String() != `{"nodes":[{"id":"mule"}],"edges":[]}` {
+		t.Fatalf("unexpected graph body %q", recorder.Body.String())
+	}
+}
+
+func TestInvalidCompliancePathsReturnBadRequest(t *testing.T) {
+	tests := []struct {
+		handler http.HandlerFunc
+		path    string
+	}{
+		{GetKycSessionDetail, "/api/kyc/"},
+		{GetAmlAlertDetail, "/api/aml/"},
+		{GetAmlAlertGraph, "/api/aml/alert-1"},
+		{GetStrReportDetail, "/api/str/"},
+	}
+	for _, test := range tests {
+		recorder := httptest.NewRecorder()
+		test.handler(recorder, httptest.NewRequest(http.MethodGet, test.path, nil))
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("%s: expected 400, got %d", test.path, recorder.Code)
 		}
+	}
+}
+
+func TestProxyReturnsBadGatewayWhenSpringIsUnavailable(t *testing.T) {
+	oldURL := BackendURL
+	oldClient := backendHTTPClient
+	BackendURL = "http://127.0.0.1:1"
+	backendHTTPClient = &http.Client{}
+	t.Cleanup(func() {
+		BackendURL = oldURL
+		backendHTTPClient = oldClient
 	})
-}
 
-func TestGetStrReports(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/str", nil)
-	w := httptest.NewRecorder()
-	GetStrReports(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("Expected status 502, got %d", w.Code)
-	}
-}
-
-func TestGetComplianceStats(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/compliance/stats", nil)
-	w := httptest.NewRecorder()
-	GetComplianceStats(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("Expected status 502, got %d", w.Code)
-	}
-}
-
-func TestGetAgentStatuses(t *testing.T) {
-	req := httptest.NewRequest("GET", "/api/agents/status", nil)
-	w := httptest.NewRecorder()
-	GetAgentStatuses(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("Expected status 502, got %d", w.Code)
+	recorder := httptest.NewRecorder()
+	GetComplianceStats(recorder, httptest.NewRequest(http.MethodGet, "/api/compliance/stats", nil))
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d", recorder.Code)
 	}
 }
 
 func TestWriteJSON(t *testing.T) {
-	w := httptest.NewRecorder()
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
+	recorder := httptest.NewRecorder()
+	writeJSON(recorder, http.StatusOK, map[string]string{"status": "ok"})
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recorder.Code)
 	}
-	ct := w.Header().Get("Content-Type")
-	if ct != "application/json" {
-		t.Errorf("Expected Content-Type application/json, got %s", ct)
+	if got := recorder.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("expected application/json, got %q", got)
 	}
 }

@@ -3,40 +3,63 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
-	"sync"
+	"sync/atomic"
 	"time"
-
-	"dashboard/backend/models"
-	"dashboard/backend/store"
 
 	"github.com/segmentio/kafka-go"
 )
 
-// TransactionEvent matches the Spring Boot Transaction entity JSON format
+// These envelopes intentionally contain only stable fields needed for
+// telemetry. The dashboard never turns Kafka messages into compliance records;
+// Spring/PostgreSQL remain the single source of truth.
 type TransactionEvent struct {
-	ID                  *int64          `json:"id"`
-	SourceAccountNumber string          `json:"sourceAccountNumber"`
-	TargetAccountNumber string          `json:"targetAccountNumber"`
-	Amount              *float64        `json:"amount"`
-	Description         string          `json:"description"`
-	Timestamp           json.RawMessage `json:"timestamp"`
-	Status              string          `json:"status"`
+	ID                       *int64          `json:"id"`
+	SourceAccountNumber      string          `json:"sourceAccountNumber"`
+	SourceAccount            string          `json:"source_account"`
+	SourceAccountNumberSnake string          `json:"source_account_number"`
+	TargetAccountNumber      string          `json:"targetAccountNumber"`
+	TargetAccount            string          `json:"target_account"`
+	TargetAccountNumberSnake string          `json:"target_account_number"`
+	Amount                   *float64        `json:"amount"`
+	Timestamp                json.RawMessage `json:"timestamp"`
+	Status                   string          `json:"status"`
 }
 
-// KycEvent matches the Spring Boot KYC submission JSON format
 type KycEvent struct {
-	SessionID    string  `json:"sessionId"`
-	CustomerID   string  `json:"customerId"`
-	CustomerName string  `json:"customerName"`
-	CCCDNumber   string  `json:"cccdNumber"`
-	FrontImage   string  `json:"frontImageBase64,omitempty"`
-	BackImage    string  `json:"backImageBase64,omitempty"`
-	SelfieImage  string  `json:"selfieImageBase64,omitempty"`
-	Status       string  `json:"status"`
-	RiskScore    float64 `json:"riskScore"`
+	SessionID         string `json:"sessionId"`
+	SessionIDSnake    string `json:"session_id"`
+	CustomerID        string `json:"customerId"`
+	CustomerIDSnake   string `json:"customer_id"`
+	CustomerName      string `json:"customerName"`
+	CustomerNameSnake string `json:"customer_name"`
+	Status            string `json:"status"`
+}
+
+type telemetryCounters struct {
+	transactions atomic.Uint64
+	kyc          atomic.Uint64
+	alerts       atomic.Uint64
+	invalid      atomic.Uint64
+}
+
+var telemetry telemetryCounters
+
+type TelemetrySnapshot struct {
+	Transactions uint64
+	KYC          uint64
+	Alerts       uint64
+	Invalid      uint64
+}
+
+func SnapshotTelemetry() TelemetrySnapshot {
+	return TelemetrySnapshot{
+		Transactions: telemetry.transactions.Load(),
+		KYC:          telemetry.kyc.Load(),
+		Alerts:       telemetry.alerts.Load(),
+		Invalid:      telemetry.invalid.Load(),
+	}
 }
 
 func getKafkaBootstrap() string {
@@ -47,220 +70,123 @@ func getKafkaBootstrap() string {
 	return bootstrap
 }
 
-// StartKafkaConsumer launches goroutines that consume from TrueTrace Kafka topics
 func StartKafkaConsumer(ctx context.Context) {
 	bootstrap := getKafkaBootstrap()
-	groupID := "truetrace-dashboard"
+	groupID := "truetrace-dashboard-telemetry"
 
 	topics := []struct {
 		topic   string
-		handler func(ctx context.Context, msg kafka.Message)
+		handler func(context.Context, kafka.Message)
 	}{
 		{"truetrace.transactions", handleTransactionEvent},
 		{"truetrace.kyc.submissions", handleKycEvent},
 		{"truetrace.alerts", handleAlertEvent},
 	}
 
-	for _, t := range topics {
-		go func(topic string, handler func(ctx context.Context, msg kafka.Message)) {
+	for _, subscription := range topics {
+		go func(topic string, handler func(context.Context, kafka.Message)) {
 			for {
 				err := consumeTopic(ctx, bootstrap, groupID, topic, handler)
 				if ctx.Err() != nil {
 					return
 				}
-				log.Printf("[Kafka Consumer] %s consumer error: %v. Reconnecting in 5s...", topic, err)
+				log.Printf("[Kafka Telemetry] %s consumer error: %v. Reconnecting in 5s...", topic, err)
 				time.Sleep(5 * time.Second)
 			}
-		}(t.topic, t.handler)
+		}(subscription.topic, subscription.handler)
 	}
 
-	log.Printf("[Kafka Consumer] Started consumers for %d topics on %s", len(topics), bootstrap)
+	log.Printf("[Kafka Telemetry] Started schema-validation consumers for %d topics on %s", len(topics), bootstrap)
 }
 
-func consumeTopic(ctx context.Context, bootstrap, groupID, topic string, handler func(ctx context.Context, msg kafka.Message)) error {
+func consumeTopic(
+	ctx context.Context,
+	bootstrap string,
+	groupID string,
+	topic string,
+	handler func(context.Context, kafka.Message),
+) error {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        []string{bootstrap},
 		GroupID:        groupID,
 		Topic:          topic,
 		StartOffset:    kafka.LastOffset,
-		CommitInterval: 1 * time.Second,
+		CommitInterval: time.Second,
 		MaxWait:        3 * time.Second,
 	})
 	defer reader.Close()
 
-	log.Printf("[Kafka Consumer] Subscribed to topic: %s", topic)
-
+	log.Printf("[Kafka Telemetry] Subscribed to topic: %s", topic)
 	for {
-		msg, err := reader.ReadMessage(ctx)
+		message, err := reader.ReadMessage(ctx)
 		if err != nil {
 			return err
 		}
-		handler(ctx, msg)
+		handler(ctx, message)
 	}
 }
 
-var (
-	velocityMu      sync.Mutex
-	velocityTracker = make(map[string][]time.Time)
-)
-
-func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
-	var tx TransactionEvent
-	if err := json.Unmarshal(msg.Value, &tx); err != nil {
-		log.Printf("[Kafka Consumer] Failed to parse transaction event: %v", err)
+func handleTransactionEvent(_ context.Context, msg kafka.Message) {
+	var event TransactionEvent
+	source := ""
+	target := ""
+	if err := json.Unmarshal(msg.Value, &event); err == nil {
+		source = firstNonEmpty(
+			event.SourceAccountNumber,
+			event.SourceAccount,
+			event.SourceAccountNumberSnake,
+		)
+		target = firstNonEmpty(
+			event.TargetAccountNumber,
+			event.TargetAccount,
+			event.TargetAccountNumberSnake,
+		)
+	}
+	if source == "" || target == "" || event.Amount == nil {
+		telemetry.invalid.Add(1)
+		log.Printf("[Kafka Telemetry] Invalid transaction event at offset %d", msg.Offset)
 		return
 	}
-
-	amount := 0.0
-	if tx.Amount != nil {
-		amount = *tx.Amount
-	}
-
-	txID := fmt.Sprintf("tx-%d", msg.Offset)
-	if tx.ID != nil {
-		txID = fmt.Sprintf("tx-%d", *tx.ID)
-	}
-
-	log.Printf("[Kafka Consumer] Ingested transaction %s: %s -> %s amount=%.2f status=%s",
-		txID, tx.SourceAccountNumber, tx.TargetAccountNumber, amount, tx.Status)
-
-	now := time.Now()
-	
-	// Velocity Tracking
-	velocityMu.Lock()
-	times := velocityTracker[tx.SourceAccountNumber]
-	// Filter times within last 60 seconds
-	var recentTimes []time.Time
-	for _, t := range times {
-		if now.Sub(t) <= 60*time.Second {
-			recentTimes = append(recentTimes, t)
-		}
-	}
-	recentTimes = append(recentTimes, now)
-	velocityTracker[tx.SourceAccountNumber] = recentTimes
-	txCount := len(recentTimes)
-	velocityMu.Unlock()
-
-	// Determine risk based on amount thresholds (VND) and velocity
-	riskScore := 0.0
-	alertType := "STANDARD"
-	switch {
-	case txCount >= 5: // >= 5 transactions in 60 seconds
-		riskScore = 0.90
-		alertType = "VELOCITY_ANOMALY"
-	case amount >= 1_000_000_000: // >= 1 billion VND
-		riskScore = 0.95
-		alertType = "RAPID_MOVEMENT"
-	case amount >= 500_000_000: // >= 500 million VND
-		riskScore = 0.75
-		alertType = "STRUCTURING"
-	case amount >= 100_000_000: // >= 100 million VND
-		riskScore = 0.50
-		alertType = "MULE_SPLIT"
-	default:
-		riskScore = 0.15
-		alertType = "STANDARD"
-	}
-
-	if alertType == "STANDARD" {
-		// Skip creating an alert for standard transfers
-		return
-	}
-
-	// Create an AML alert entry for SOC visibility
-	store.DB.Mu.Lock()
-	nextID := len(store.DB.AmlAlerts) + 1
-	alertID := fmt.Sprintf("aml-tx-%d", nextID)
-
-	alert := &models.AmlAlert{
-		ID:                   nextID,
-		AlertID:              alertID,
-		TriggerTransactionID: txID,
-		PrimaryAccountNumber: tx.SourceAccountNumber,
-		AlertType:            alertType,
-		Status:               "OPEN",
-		RiskScore:            riskScore,
-		TotalAmount:          amount,
-		Currency:             "VND",
-		TimeWindowSeconds:    0,
-		InvolvedAccounts: []models.InvolvedAccount{
-			{AccountNumber: tx.SourceAccountNumber, Role: "sender", TotalOutflow: amount},
-			{AccountNumber: tx.TargetAccountNumber, Role: "receiver", TotalInflow: amount},
-		},
-		TransactionChain: []models.TransactionChainItem{
-			{
-				TxID:      txID,
-				From:      tx.SourceAccountNumber,
-				To:        tx.TargetAccountNumber,
-				Amount:    amount,
-				Timestamp: now,
-				Channel:   "web_portal",
-			},
-		},
-		GraphData: models.GraphData{
-			Nodes: []models.GraphNode{
-				{ID: tx.SourceAccountNumber, Label: tx.SourceAccountNumber, Type: "account", RiskLevel: "medium"},
-				{ID: tx.TargetAccountNumber, Label: tx.TargetAccountNumber, Type: "account", RiskLevel: "low"},
-			},
-			Edges: []models.GraphEdge{
-				{Source: tx.SourceAccountNumber, Target: tx.TargetAccountNumber, Amount: amount, Timestamp: now},
-			},
-		},
-		CreatedAt: now,
-	}
-	store.DB.AmlAlerts = append(store.DB.AmlAlerts, alert)
-
-	// ComplianceStats are now dynamic, no manual increment needed
-
-	store.DB.Mu.Unlock()
-
-	if store.UsePostgres {
-		if err := store.SaveAmlAlert(alert); err != nil {
-			log.Printf("[Kafka Consumer] Failed to persist AML alert to DB: %v", err)
-		}
-	}
-
-	log.Printf("[Kafka Consumer] Created AML alert %s for transaction %s (risk=%.2f type=%s)",
-		alertID, txID, riskScore, alertType)
+	telemetry.transactions.Add(1)
+	log.Printf(
+		"[Kafka Telemetry] Transaction schema valid at offset %d: %s -> %s",
+		msg.Offset,
+		source,
+		target,
+	)
 }
 
-func handleKycEvent(ctx context.Context, msg kafka.Message) {
-	var kyc KycEvent
-	if err := json.Unmarshal(msg.Value, &kyc); err != nil {
-		log.Printf("[Kafka Consumer] Failed to parse KYC event: %v", err)
+func handleKycEvent(_ context.Context, msg kafka.Message) {
+	var event KycEvent
+	sessionID := ""
+	if err := json.Unmarshal(msg.Value, &event); err == nil {
+		sessionID = firstNonEmpty(event.SessionID, event.SessionIDSnake)
+	}
+	if sessionID == "" {
+		telemetry.invalid.Add(1)
+		log.Printf("[Kafka Telemetry] Invalid KYC event at offset %d", msg.Offset)
 		return
 	}
-
-	log.Printf("[Kafka Consumer] Ingested KYC submission: customer=%s session=%s",
-		kyc.CustomerName, kyc.SessionID)
-
-	store.DB.Mu.Lock()
-	nextID := len(store.DB.KycSessions) + 1
-	session := &models.KycSession{
-		ID:                nextID,
-		SessionID:         kyc.SessionID,
-		CustomerID:        kyc.CustomerID,
-		CustomerName:      kyc.CustomerName,
-		Status:            "MANUAL_REVIEW",
-		CCCDNumber:        kyc.CCCDNumber,
-		CCCDValid:         false,
-		RiskLevel:         "pending",
-		RecommendedAction: "manual_review",
-		CreatedAt:         time.Now(),
-	}
-	store.DB.KycSessions = append(store.DB.KycSessions, session)
-	// We no longer manually update ComplianceStats here since it's dynamic
-	store.DB.Mu.Unlock()
-
-	if store.UsePostgres {
-		if err := store.SaveKycSession(session); err != nil {
-			log.Printf("[Kafka Consumer] Failed to persist KYC session to DB: %v", err)
-		}
-	}
-
-	log.Printf("[Kafka Consumer] Created KYC session %s for review", kyc.SessionID)
+	telemetry.kyc.Add(1)
+	log.Printf("[Kafka Telemetry] KYC schema valid at offset %d: session=%s", msg.Offset, sessionID)
 }
 
-func handleAlertEvent(ctx context.Context, msg kafka.Message) {
-	log.Printf("[Kafka Consumer] Ingested alert event: %s", string(msg.Value))
+func handleAlertEvent(_ context.Context, msg kafka.Message) {
+	var event map[string]interface{}
+	if err := json.Unmarshal(msg.Value, &event); err != nil || len(event) == 0 {
+		telemetry.invalid.Add(1)
+		log.Printf("[Kafka Telemetry] Invalid AML alert event at offset %d", msg.Offset)
+		return
+	}
+	telemetry.alerts.Add(1)
+	log.Printf("[Kafka Telemetry] AML alert schema valid at offset %d", msg.Offset)
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
