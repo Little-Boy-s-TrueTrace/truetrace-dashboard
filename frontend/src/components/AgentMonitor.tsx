@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { AgentStatus } from '../types';
-import { Server, Activity, ArrowRight, Zap, RefreshCw, Cpu, Database, Network } from 'lucide-react';
+import { Server, Activity, ArrowRight, Zap, RefreshCw, Cpu, Database, Network, X } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const AgentMonitor: React.FC = () => {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for the modal
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const [selectedAgentLogs, setSelectedAgentLogs] = useState<{agentId: string, logs: string[]} | null>(null);
 
   useEffect(() => {
     const fetchAgents = () => {
@@ -36,7 +40,7 @@ export const AgentMonitor: React.FC = () => {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col space-y-8 overflow-y-auto">
+    <div className="p-6 h-full flex flex-col space-y-8 overflow-y-auto relative">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
           <Cpu className="text-cyan-400" /> AI Agent Monitor
@@ -100,7 +104,8 @@ export const AgentMonitor: React.FC = () => {
                       .then(res => res.json())
                       .then(data => {
                         if (data.logs) {
-                          window.alert(data.logs.join('\n'));
+                          setSelectedAgentLogs({ agentId: agent.agentId, logs: data.logs });
+                          setIsLogModalOpen(true);
                         } else {
                           window.alert(data.error || 'Failed to fetch logs');
                         }
@@ -182,6 +187,45 @@ export const AgentMonitor: React.FC = () => {
 
         </div>
       </div>
+
+      {/* Logs Modal */}
+      {isLogModalOpen && selectedAgentLogs && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-800/80">
+              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Activity className="text-cyan-400 w-5 h-5" />
+                Logs: {selectedAgentLogs.agentId}
+              </h3>
+              <button 
+                onClick={() => { setIsLogModalOpen(false); setSelectedAgentLogs(null); }}
+                className="text-slate-400 hover:text-slate-200 transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 bg-slate-900 overflow-y-auto max-h-[60vh]">
+              {selectedAgentLogs.logs.length > 0 ? (
+                <div className="font-mono text-sm text-slate-300 space-y-1">
+                  {selectedAgentLogs.logs.map((log, i) => (
+                    <div key={i} className="break-all">{log}</div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-500 italic">No logs available.</div>
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-700 bg-slate-800 flex justify-end">
+              <button 
+                onClick={() => { setIsLogModalOpen(false); setSelectedAgentLogs(null); }}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
