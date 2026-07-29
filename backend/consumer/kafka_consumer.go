@@ -97,6 +97,8 @@ func consumeTopic(ctx context.Context, bootstrap, groupID, topic string, handler
 		}
 		handler(ctx, msg)
 	}
+}
+
 var (
 	velocityMu      sync.Mutex
 	velocityTracker = make(map[string][]time.Time)
