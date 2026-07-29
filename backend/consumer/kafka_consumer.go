@@ -128,7 +128,7 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 	
 	// Velocity Tracking
 	velocityMu.Lock()
-	times := velocityTracker[tx.TargetAccountNumber]
+	times := velocityTracker[tx.SourceAccountNumber]
 	// Filter times within last 60 seconds
 	var recentTimes []time.Time
 	for _, t := range times {
@@ -137,7 +137,7 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 		}
 	}
 	recentTimes = append(recentTimes, now)
-	velocityTracker[tx.TargetAccountNumber] = recentTimes
+	velocityTracker[tx.SourceAccountNumber] = recentTimes
 	txCount := len(recentTimes)
 	velocityMu.Unlock()
 
