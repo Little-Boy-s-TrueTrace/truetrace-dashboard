@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ComplianceStats, AgentStatus, AmlAlert } from '../types';
+import { ComplianceStats, AgentStatus, AmlAlert, KycSession } from '../types';
 import { Users, ShieldAlert, AlertTriangle, FileText, Lock, CheckCircle, Activity, Server } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+import { apiList, apiRequest, normalizeAgentStatus, normalizeAmlAlert } from '../api';
 
 interface AlertTypeCount {
   type: string;
@@ -17,22 +16,29 @@ export const ComplianceOverview: React.FC = () => {
   const [alertTypes, setAlertTypes] = useState<AlertTypeCount[]>([]);
   const [kycDaily, setKycDaily] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, agentsRes, alertsRes, kycRes] = await Promise.all([
-          fetch(`${API_URL}/compliance/stats`),
-          fetch(`${API_URL}/agents/status`),
-          fetch(`${API_URL}/aml/`).catch(() => null),
-          fetch(`${API_URL}/kyc/`).catch(() => null),
+        const [rawStats, rawAgents, rawAlerts, sessions] = await Promise.all([
+          apiRequest<ComplianceStats>('/compliance/stats'),
+          apiList<AgentStatus>('/agents/status'),
+          apiList<Record<string, unknown>>('/aml'),
+          apiList<KycSession>('/kyc'),
         ]);
-        if (statsRes.ok) setStats(await statsRes.json());
-        if (agentsRes.ok) setAgents(await agentsRes.json());
+        const normalizedApprovalRate = rawStats.totalKycProcessed > 0 && rawStats.kycApprovalRate <= 1
+          ? rawStats.kycApprovalRate * 100
+          : rawStats.kycApprovalRate;
+        setStats({ ...rawStats, kycApprovalRate: normalizedApprovalRate });
+        setAgents(rawAgents.map((agent) => ({
+          ...agent,
+          status: normalizeAgentStatus(agent.status),
+        })));
 
         // Compute AML alert type breakdown from real data
-        if (alertsRes && alertsRes.ok) {
-          const alerts: AmlAlert[] = await alertsRes.json();
+        {
+          const alerts: AmlAlert[] = rawAlerts.map((alert) => normalizeAmlAlert(alert));
           const typeCounts: Record<string, number> = {};
           alerts.forEach(a => {
             const t = a.alertType || 'UNKNOWN';
@@ -69,13 +75,12 @@ export const ComplianceOverview: React.FC = () => {
         }
 
         // Compute KYC daily from real sessions
-        if (kycRes && kycRes.ok) {
-          const sessions = await kycRes.json();
+        {
           const dailyCounts: number[] = new Array(7).fill(0);
           const now = new Date();
           if (Array.isArray(sessions)) {
-            sessions.forEach((s: any) => {
-              const d = new Date(s.submittedAt || s.createdAt);
+            sessions.forEach((s) => {
+              const d = new Date(s.updatedAt || s.createdAt);
               const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
               if (diffDays >= 0 && diffDays < 7) {
                 dailyCounts[6 - diffDays]++;
@@ -84,14 +89,16 @@ export const ComplianceOverview: React.FC = () => {
           }
           setKycDaily(dailyCounts);
         }
+        setError('');
       } catch (e) {
         console.error('Failed to fetch overview data', e);
+        setError(e instanceof Error ? e.message : 'Unable to refresh compliance overview.');
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -160,6 +167,11 @@ export const ComplianceOverview: React.FC = () => {
       <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
         <Activity className="text-cyan-400" /> Compliance Command Center
       </h1>
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          Live refresh failed: {error}. Showing the last successfully loaded values.
+        </div>
+      )}
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

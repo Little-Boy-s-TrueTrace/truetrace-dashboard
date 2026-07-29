@@ -13,7 +13,11 @@ export interface KycSession {
   riskLevel: string;
   recommendedAction: string;
   createdAt: string;
+  updatedAt?: string;
   reviewedBy?: string;
+  selfieImagePath?: string;
+  idFrontImagePath?: string;
+  idBackImagePath?: string;
 }
 
 export interface AmlAlert {
@@ -21,7 +25,7 @@ export interface AmlAlert {
   alertId: string;
   triggerTransactionId: string;
   primaryAccountNumber: string;
-  alertType: 'MULE_SPLIT' | 'STRUCTURING' | 'CIRCULAR_FLOW' | 'VELOCITY_ANOMALY' | 'RAPID_MOVEMENT' | 'FAN_IN' | 'NEW_ACCOUNT_ABUSE';
+  alertType: 'MULE_SPLIT' | 'STRUCTURING' | 'CIRCULAR_FLOW' | 'VELOCITY_ANOMALY' | 'RAPID_MOVEMENT' | 'RAPID_MULE_DISPERSION' | 'FAN_IN' | 'FAN_OUT' | 'NEW_ACCOUNT_ABUSE';
   status: 'OPEN' | 'INVESTIGATING' | 'ESCALATED' | 'CLOSED' | 'FALSE_POSITIVE';
   riskScore: number;
   totalAmount: number;
@@ -33,6 +37,7 @@ export interface AmlAlert {
   createdAt: string;
   resolvedAt?: string;
   resolvedBy?: string;
+  agentFinding?: Record<string, unknown>;
 }
 
 export interface InvolvedAccount {
@@ -85,6 +90,12 @@ export interface StrReport {
   narrativeTextEn: string;
   generatedAt: string;
   submittedAt?: string;
+  reviewedBy?: string;
+  submittedBy?: string;
+  evidenceSummary?: Record<string, unknown>;
+  transactionDetails?: unknown;
+  recommendedActions?: string[];
+  regulatoryReferences?: string[];
 }
 
 export interface ComplianceStats {

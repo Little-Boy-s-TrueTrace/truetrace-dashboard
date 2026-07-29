@@ -41,3 +41,21 @@
 .score-gauge-ring {
   transition: stroke-dashoffset 0.5s ease-in-out;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .str-print-area,
+  .str-print-area * {
+    visibility: visible;
+  }
+
+  .str-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    box-shadow: none !important;
+  }
+}

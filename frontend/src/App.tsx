@@ -12,6 +12,7 @@ export default function App() {
   const [user, setUser] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem('activeTab') || 'overview');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const environmentLabel = import.meta.env.VITE_ENV_LABEL || 'DEMO';
 
   useEffect(() => {
     // Basic auth check
@@ -152,7 +153,7 @@ export default function App() {
         <header className="h-16 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-6 z-10">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-2 py-1 rounded border border-slate-700">
-              ENV: PRODUCTION
+              ENV: {environmentLabel}
             </span>
           </div>
           <div className="flex items-center gap-4">

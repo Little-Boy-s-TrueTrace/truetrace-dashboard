@@ -110,7 +110,7 @@ export const AgentMonitor: React.FC = () => {
                           window.alert(data.error || 'Failed to fetch logs');
                         }
                       })
-                      .catch(err => window.alert('Error fetching logs'));
+                      .catch(() => window.alert('Error fetching logs'));
                   }} 
                   className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
                 >
@@ -123,7 +123,7 @@ export const AgentMonitor: React.FC = () => {
                       .then(data => {
                         window.alert(data.message || data.error || 'Restart command sent');
                       })
-                      .catch(err => window.alert('Error sending restart command'));
+                      .catch(() => window.alert('Error sending restart command'));
                   }} 
                   className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
                 >
