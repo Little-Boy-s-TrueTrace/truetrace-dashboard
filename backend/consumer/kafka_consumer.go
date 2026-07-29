@@ -166,7 +166,6 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 	store.DB.Mu.Lock()
 	nextID := len(store.DB.AmlAlerts) + 1
 	alertID := fmt.Sprintf("aml-tx-%d", nextID)
-	now := time.Now()
 
 	alert := &models.AmlAlert{
 		ID:                   nextID,
