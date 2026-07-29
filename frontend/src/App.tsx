@@ -8,7 +8,7 @@ import { AgentMonitor } from './components/AgentMonitor';
 import Login from './components/Login';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [user, setUser] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem('activeTab') || 'overview');
   const [currentTime, setCurrentTime] = useState(new Date());

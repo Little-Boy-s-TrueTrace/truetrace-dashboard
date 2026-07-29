@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"dashboard/backend/models"
@@ -96,7 +97,10 @@ func consumeTopic(ctx context.Context, bootstrap, groupID, topic string, handler
 		}
 		handler(ctx, msg)
 	}
-}
+var (
+	velocityMu      sync.Mutex
+	velocityTracker = make(map[string][]time.Time)
+)
 
 func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 	var tx TransactionEvent
@@ -118,10 +122,30 @@ func handleTransactionEvent(ctx context.Context, msg kafka.Message) {
 	log.Printf("[Kafka Consumer] Ingested transaction %s: %s -> %s amount=%.2f status=%s",
 		txID, tx.SourceAccountNumber, tx.TargetAccountNumber, amount, tx.Status)
 
-	// Determine risk based on amount thresholds (VND)
+	now := time.Now()
+	
+	// Velocity Tracking
+	velocityMu.Lock()
+	times := velocityTracker[tx.TargetAccountNumber]
+	// Filter times within last 60 seconds
+	var recentTimes []time.Time
+	for _, t := range times {
+		if now.Sub(t) <= 60*time.Second {
+			recentTimes = append(recentTimes, t)
+		}
+	}
+	recentTimes = append(recentTimes, now)
+	velocityTracker[tx.TargetAccountNumber] = recentTimes
+	txCount := len(recentTimes)
+	velocityMu.Unlock()
+
+	// Determine risk based on amount thresholds (VND) and velocity
 	riskScore := 0.0
 	alertType := "transaction_monitor"
 	switch {
+	case txCount >= 5: // >= 5 transactions in 60 seconds
+		riskScore = 0.90
+		alertType = "velocity_anomaly"
 	case amount >= 1_000_000_000: // >= 1 billion VND
 		riskScore = 0.95
 		alertType = "high_value_transfer"

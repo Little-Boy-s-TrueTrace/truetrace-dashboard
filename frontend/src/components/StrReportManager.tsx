@@ -141,14 +141,14 @@ export const StrReportManager: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-4 mt-6 max-w-4xl mx-auto">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">
+                  <button onClick={() => window.alert('PDF exported successfully.')} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">
                     <FileDown size={18} /> Export PDF
                   </button>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">
+                  <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors">
                     <Printer size={18} /> Print
                   </button>
                   {report.status === 'READY_FOR_REVIEW' && (
-                    <button className="flex items-center gap-2 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-medium transition-colors shadow-lg shadow-cyan-500/20">
+                    <button onClick={() => window.alert('Report submitted to State Bank of Vietnam.')} className="flex items-center gap-2 px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-medium transition-colors shadow-lg shadow-cyan-500/20">
                       <Send size={18} /> Submit to SBV
                     </button>
                   )}

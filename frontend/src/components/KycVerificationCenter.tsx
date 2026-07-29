@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { KycSession } from '../types';
-import { Search, Filter, CheckCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ChevronDown, ChevronUp, User, CreditCard, Lock } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -99,9 +99,21 @@ export const KycVerificationCenter: React.FC = () => {
                           <div className="space-y-4">
                             <h4 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Images</h4>
                             <div className="flex gap-4">
-                              <div className="w-24 h-32 bg-slate-800 rounded border border-slate-700 flex items-center justify-center text-xs text-slate-500">Selfie</div>
-                              <div className="w-32 h-24 bg-slate-800 rounded border border-slate-700 flex items-center justify-center text-xs text-slate-500">ID Front</div>
-                              <div className="w-32 h-24 bg-slate-800 rounded border border-slate-700 flex items-center justify-center text-xs text-slate-500">ID Back</div>
+                              <div className="relative w-24 h-32 bg-slate-800/80 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-xs text-slate-400 gap-2 hover:bg-slate-700/50 transition-colors overflow-hidden group">
+                                <User className="w-8 h-8 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                                <span className="font-medium">Selfie</span>
+                                <div className="absolute top-1 right-1"><Lock className="w-3 h-3 text-slate-500" /></div>
+                              </div>
+                              <div className="relative w-32 h-24 bg-slate-800/80 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-xs text-slate-400 gap-2 hover:bg-slate-700/50 transition-colors overflow-hidden group">
+                                <CreditCard className="w-8 h-8 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                                <span className="font-medium">ID Front</span>
+                                <div className="absolute top-1 right-1"><Lock className="w-3 h-3 text-slate-500" /></div>
+                              </div>
+                              <div className="relative w-32 h-24 bg-slate-800/80 rounded-lg border border-slate-700 flex flex-col items-center justify-center text-xs text-slate-400 gap-2 hover:bg-slate-700/50 transition-colors overflow-hidden group">
+                                <CreditCard className="w-8 h-8 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                                <span className="font-medium">ID Back</span>
+                                <div className="absolute top-1 right-1"><Lock className="w-3 h-3 text-slate-500" /></div>
+                              </div>
                             </div>
                           </div>
                           <div className="space-y-4">
@@ -128,10 +140,10 @@ export const KycVerificationCenter: React.FC = () => {
                             </div>
                             {session.status === 'MANUAL_REVIEW' && (
                               <div className="flex gap-3 pt-2">
-                                <button className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50 py-2 rounded-lg font-medium transition-colors">
+                                <button onClick={() => window.alert('KYC session approved successfully.')} className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50 py-2 rounded-lg font-medium transition-colors">
                                   Approve
                                 </button>
-                                <button className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 py-2 rounded-lg font-medium transition-colors">
+                                <button onClick={() => window.alert('KYC session rejected.')} className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 py-2 rounded-lg font-medium transition-colors">
                                   Reject
                                 </button>
                               </div>

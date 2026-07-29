@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-
+	"strings"
 	"dashboard/backend/consumer"
 	"dashboard/backend/handlers"
 )
@@ -67,6 +67,15 @@ func main() {
 
 	mux.HandleFunc("/api/compliance/stats", handlers.GetComplianceStats)
 	mux.HandleFunc("/api/agents/status", handlers.GetAgentStatuses)
+	mux.HandleFunc("/api/agents/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/logs") {
+			handlers.GetAgentLogs(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/restart") {
+			handlers.RestartAgent(w, r)
+		} else {
+			http.Error(w, `{"error":"Agent endpoint not found"}`, http.StatusNotFound)
+		}
+	})
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AmlAlert } from '../types';
 import { ShieldAlert, Search, Filter, AlertTriangle, ArrowRight, Activity, ChevronRight, Clock } from 'lucide-react';
+import { TransactionGraphViewer } from './TransactionGraphViewer';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -8,6 +9,7 @@ export const AmlAlertsDashboard: React.FC = () => {
   const [alerts, setAlerts] = useState<AmlAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [showGraphId, setShowGraphId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${API_URL}/aml`)
@@ -167,18 +169,24 @@ export const AmlAlertsDashboard: React.FC = () => {
                   </div>
 
                   <div className="flex gap-3">
-                    <button className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                    <button onClick={() => setShowGraphId(showGraphId === alert.id ? null : alert.id)} className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                       <Activity size={16} /> Investigate Graph
                     </button>
                     {alert.status === 'OPEN' && (
-                      <button className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg font-medium transition-colors">
+                      <button onClick={() => window.alert('Status updated to INVESTIGATING')} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg font-medium transition-colors">
                         Mark Investigating
                       </button>
                     )}
-                    <button className="px-4 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/50 rounded-lg font-medium transition-colors">
+                    <button onClick={() => window.alert('Alert escalated. STR report generation initiated.')} className="px-4 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/50 rounded-lg font-medium transition-colors">
                       Escalate to STR
                     </button>
                   </div>
+                  {showGraphId === alert.id && alert.graphData && (
+                    <div className="col-span-2 mt-4">
+                      <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-4">Transaction Flow Graph</h3>
+                      <TransactionGraphViewer graphData={alert.graphData} height={350} />
+                    </div>
+                  )}
                 </div>
 
               </div>

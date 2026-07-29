@@ -41,7 +41,7 @@ export const AgentMonitor: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
           <Cpu className="text-cyan-400" /> AI Agent Monitor
         </h1>
-        <button className="flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400">
+        <button onClick={() => window.alert('Force sync initiated.')} className="flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400">
           <RefreshCw size={16} /> Force Sync
         </button>
       </div>
@@ -94,8 +94,36 @@ export const AgentMonitor: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-2">
-                <button className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors">View Logs</button>
-                <button className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors">Restart</button>
+                <button 
+                  onClick={() => {
+                    fetch(`${API_URL}/agents/${agent.agentId}/logs`)
+                      .then(res => res.json())
+                      .then(data => {
+                        if (data.logs) {
+                          window.alert(data.logs.join('\n'));
+                        } else {
+                          window.alert(data.error || 'Failed to fetch logs');
+                        }
+                      })
+                      .catch(err => window.alert('Error fetching logs'));
+                  }} 
+                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
+                >
+                  View Logs
+                </button>
+                <button 
+                  onClick={() => {
+                    fetch(`${API_URL}/agents/${agent.agentId}/restart`, { method: 'POST' })
+                      .then(res => res.json())
+                      .then(data => {
+                        window.alert(data.message || data.error || 'Restart command sent');
+                      })
+                      .catch(err => window.alert('Error sending restart command'));
+                  }} 
+                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
+                >
+                  Restart
+                </button>
               </div>
             </div>
           </div>

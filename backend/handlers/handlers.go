@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"dashboard/backend/store"
 )
 
 var BackendURL = "http://localhost:8080" // default, can be overridden by env var
@@ -83,7 +84,8 @@ func GetKycSessionDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAmlAlerts(w http.ResponseWriter, r *http.Request) {
-	proxyRequest(w, r, "/api/aml/alerts")
+	alerts := store.DB.GetAmlAlerts()
+	writeJSON(w, http.StatusOK, alerts)
 }
 
 func GetAmlAlertDetail(w http.ResponseWriter, r *http.Request) {
@@ -93,7 +95,13 @@ func GetAmlAlertDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := parts[3]
-	proxyRequest(w, r, "/api/aml/alerts/"+id)
+	for _, alert := range store.DB.GetAmlAlerts() {
+		if alert.AlertID == id {
+			writeJSON(w, http.StatusOK, alert)
+			return
+		}
+	}
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "Alert not found"})
 }
 
 func GetAmlAlertGraph(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +111,13 @@ func GetAmlAlertGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := parts[3]
-	proxyRequest(w, r, "/api/aml/alerts/"+id+"/graph")
+	for _, alert := range store.DB.GetAmlAlerts() {
+		if alert.AlertID == id {
+			writeJSON(w, http.StatusOK, alert.GraphData)
+			return
+		}
+	}
+	writeJSON(w, http.StatusNotFound, map[string]string{"error": "Alert graph not found"})
 }
 
 func GetStrReports(w http.ResponseWriter, r *http.Request) {
@@ -121,9 +135,56 @@ func GetStrReportDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetComplianceStats(w http.ResponseWriter, r *http.Request) {
-	proxyRequest(w, r, "/api/compliance/stats")
+	stats := store.DB.GetComplianceStats()
+	writeJSON(w, http.StatusOK, stats)
 }
 
 func GetAgentStatuses(w http.ResponseWriter, r *http.Request) {
-	proxyRequest(w, r, "/api/agents/status")
+	agents := store.DB.GetAgentStatuses()
+	writeJSON(w, http.StatusOK, agents)
+}
+
+func GetAgentLogs(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 4 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
+		return
+	}
+	id := parts[3]
+	// Return simulated logs for the agent
+	logs := []string{
+		fmt.Sprintf("[%s] Agent initialized...", time.Now().Add(-10*time.Minute).Format(time.RFC3339)),
+		fmt.Sprintf("[%s] Connecting to datastore...", time.Now().Add(-9*time.Minute).Format(time.RFC3339)),
+		fmt.Sprintf("[%s] Processing queue (0 items)...", time.Now().Add(-5*time.Minute).Format(time.RFC3339)),
+		fmt.Sprintf("[%s] Status OK for agent %s.", time.Now().Format(time.RFC3339), id),
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"logs": logs})
+}
+
+func RestartAgent(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 4 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
+		return
+	}
+	id := parts[3]
+	
+	store.DB.Mu.Lock()
+	if agent, exists := store.DB.AgentStatuses[id]; exists {
+		agent.Status = "RESTARTING"
+		agent.LastActivity = time.Now()
+		// Simulate restart completion asynchronously
+		go func(aId string) {
+			time.Sleep(2 * time.Second)
+			store.DB.Mu.Lock()
+			if a, e := store.DB.AgentStatuses[aId]; e {
+				a.Status = "RUNNING"
+				a.LastActivity = time.Now()
+			}
+			store.DB.Mu.Unlock()
+		}(id)
+	}
+	store.DB.Mu.Unlock()
+	
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Restart command issued"})
 }
