@@ -428,22 +428,27 @@ export const KycVerificationCenter: React.FC = () => {
                               <div className="bg-slate-800/80 rounded-lg border border-slate-700 p-4 flex-1">
                                 <h4 className="text-sm font-medium text-cyan-400 uppercase tracking-wider mb-2">AI Decision Summary</h4>
                                 <div className="text-sm text-slate-300">
-                                  {session.agentFinding?.vision_analysis ? (
-                                    session.status === 'APPROVED' ? (
-                                      <span className="text-emerald-300">All biometric checks passed. Identity verified. Agent automatically approved onboarding.</span>
-                                    ) : session.status === 'REJECTED' ? (
-                                      <span className="text-red-300">
-                                        High deepfake probability detected ({((session.agentFinding.vision_analysis.deepfake_probability || 0) * 100).toFixed(0)}%). 
-                                        Low face match ({((session.agentFinding.vision_analysis.face_match_score || 0) * 100).toFixed(0)}%) and 
-                                        liveness ({((session.agentFinding.vision_analysis.liveness_score || 0) * 100).toFixed(0)}%). 
-                                        Agent automatically rejected.
+                                  {(() => {
+                                    const v = session.agentFinding?.vision_analysis;
+                                    const cccd = session.agentFinding?.cccd_validation;
+                                    if (!v) return <span className="text-slate-400">Agent analysis pending.</span>;
+                                    const issues: string[] = [];
+                                    const dfProb = v.deepfake_probability || 0;
+                                    const faceMatch = v.face_match_score || 0;
+                                    const liveness = v.liveness_score || 0;
+                                    if (dfProb >= 0.5) issues.push(`High deepfake probability (${(dfProb * 100).toFixed(0)}%)`);
+                                    if (faceMatch < 0.8) issues.push(`Low face match (${(faceMatch * 100).toFixed(0)}%)`);
+                                    if (liveness < 0.8) issues.push(`Low liveness (${(liveness * 100).toFixed(0)}%)`);
+                                    if (cccd && !cccd.valid) issues.push(`CCCD validation failed: ${cccd.error || 'invalid format'}`);
+                                    if (issues.length === 0) {
+                                      return <span className="text-emerald-300">All biometric checks passed. Identity verified. Agent automatically approved onboarding.</span>;
+                                    }
+                                    return (
+                                      <span className={session.status === 'REJECTED' ? 'text-red-300' : 'text-orange-300'}>
+                                        {issues.join('. ')}. {session.status === 'REJECTED' ? 'Agent automatically rejected.' : session.status === 'APPROVED' ? 'Manually approved by officer despite flagged issues.' : 'Agent flagged for manual review.'}
                                       </span>
-                                    ) : (
-                                      <span className="text-orange-300">Agent flags require manual review. Please inspect evidence.</span>
-                                    )
-                                  ) : (
-                                    <span className="text-slate-400">Agent analysis pending.</span>
-                                  )}
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
