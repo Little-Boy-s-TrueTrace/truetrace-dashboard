@@ -10,6 +10,7 @@ import {
   Clock,
   RefreshCw,
   Unlock,
+  Lock,
 } from 'lucide-react';
 import { TransactionGraphViewer } from './TransactionGraphViewer';
 import { apiList, apiRequest, newestFirst, normalizeAmlAlert } from '../api';
@@ -26,6 +27,7 @@ export const AmlAlertsDashboard: React.FC = () => {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [actionId, setActionId] = useState('');
+  const [frozenAccounts, setFrozenAccounts] = useState<Set<string>>(new Set());
 
   const loadAlerts = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -74,15 +76,26 @@ export const AmlAlertsDashboard: React.FC = () => {
     }
   };
 
-  const unfreezeAccount = async (accountNumber: string) => {
+  const toggleFreeze = async (accountNumber: string) => {
+    const isFrozen = !frozenAccounts.has(accountNumber);
     setActionId(accountNumber);
     setMessage('');
     setError('');
     try {
-      await apiRequest(`/aml/unfreeze/${encodeURIComponent(accountNumber)}`, { method: 'POST' });
-      setMessage(`Account ${accountNumber} has been unfrozen.`);
+      const action = isFrozen ? 'freeze' : 'unfreeze';
+      await apiRequest(`/aml/${action}/${encodeURIComponent(accountNumber)}`, { method: 'POST' });
+      setFrozenAccounts(prev => {
+        const next = new Set(prev);
+        if (isFrozen) {
+          next.delete(accountNumber);
+        } else {
+          next.add(accountNumber);
+        }
+        return next;
+      });
+      setMessage(`Account ${accountNumber} has been ${isFrozen ? 'frozen' : 'unfrozen'}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to unfreeze account.');
+      setError(err instanceof Error ? err.message : `Unable to ${isFrozen ? 'freeze' : 'unfreeze'} account.`);
     } finally {
       setActionId('');
     }
@@ -299,13 +312,22 @@ export const AmlAlertsDashboard: React.FC = () => {
                           Escalate to STR
                         </button>
                       )}
-                      <button
-                        disabled={actionId === alert.primaryAccountNumber}
-                        onClick={() => void unfreezeAccount(alert.primaryAccountNumber)}
-                        className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
-                      >
-                        <Unlock size={16} /> Unfreeze Account
-                      </button>
+                      {(() => {
+                        const isUnfrozen = frozenAccounts.has(alert.primaryAccountNumber);
+                        return (
+                          <button
+                            disabled={actionId === alert.primaryAccountNumber}
+                            onClick={() => void toggleFreeze(alert.primaryAccountNumber)}
+                            className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 ${
+                              isUnfrozen
+                                ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50'
+                                : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50'
+                            }`}
+                          >
+                            {isUnfrozen ? <><Lock size={16} /> Freeze Account</> : <><Unlock size={16} /> Unfreeze Account</>}
+                          </button>
+                        );
+                      })()}
                     </div>
                     {showGraphId === alert.alertId && (
                       <div>
