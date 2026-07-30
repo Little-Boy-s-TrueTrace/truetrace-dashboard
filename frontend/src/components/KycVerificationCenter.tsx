@@ -24,6 +24,7 @@ export const KycVerificationCenter: React.FC = () => {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [actionId, setActionId] = useState('');
+  const [reviewMode, setReviewMode] = useState<'agent' | 'manual'>('agent');
 
   const loadSessions = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -193,8 +194,125 @@ export const KycVerificationCenter: React.FC = () => {
                     <tr className="bg-slate-900/50">
                       <td colSpan={8} className="p-6">
                         <div className="flex flex-col gap-6">
-                          {/* Agent Analysis Status Banner */}
-                          {session.agentFinding ? (
+                          {/* Review Mode Toggle */}
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => setReviewMode(reviewMode === 'agent' ? 'manual' : 'agent')}
+                              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+                                reviewMode === 'manual' 
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' 
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'
+                              }`}
+                            >
+                              {reviewMode === 'manual' ? '🔍 Manual Review Mode' : '📊 Agent Analysis'}
+                            </button>
+                          </div>
+
+                          {reviewMode === 'manual' ? (
+                            <div className="space-y-6">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Column 1: Selfie */}
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-sm font-medium text-slate-300">Selfie / Ảnh chân dung</h4>
+                                  <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-2 flex items-center justify-center min-h-[300px]">
+                                    <img 
+                                      src={`/api/kyc/${session.sessionId}/evidence/selfie`} 
+                                      alt="Selfie" 
+                                      loading="lazy"
+                                      className="max-h-[400px] w-full object-contain rounded-lg border border-slate-700/50 shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(`/api/kyc/${session.sessionId}/evidence/selfie`, '_blank')}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.parentElement) {
+                                          const span = document.createElement('span');
+                                          span.className = 'text-slate-500 text-sm';
+                                          span.innerText = 'Ảnh không khả dụng';
+                                          target.parentElement.appendChild(span);
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                {/* Column 2: ID Front */}
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-sm font-medium text-slate-300">CCCD Mặt trước</h4>
+                                  <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-2 flex items-center justify-center min-h-[300px]">
+                                    <img 
+                                      src={`/api/kyc/${session.sessionId}/evidence/id-front`} 
+                                      alt="ID Front" 
+                                      loading="lazy"
+                                      className="max-h-[400px] w-full object-contain rounded-lg border border-slate-700/50 shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(`/api/kyc/${session.sessionId}/evidence/id-front`, '_blank')}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.parentElement) {
+                                          const span = document.createElement('span');
+                                          span.className = 'text-slate-500 text-sm';
+                                          span.innerText = 'Ảnh không khả dụng';
+                                          target.parentElement.appendChild(span);
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                {/* Column 3: ID Back */}
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-sm font-medium text-slate-300">CCCD Mặt sau</h4>
+                                  <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-2 flex items-center justify-center min-h-[300px]">
+                                    <img 
+                                      src={`/api/kyc/${session.sessionId}/evidence/id-back`} 
+                                      alt="ID Back" 
+                                      loading="lazy"
+                                      className="max-h-[400px] w-full object-contain rounded-lg border border-slate-700/50 shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(`/api/kyc/${session.sessionId}/evidence/id-back`, '_blank')}
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.parentElement) {
+                                          const span = document.createElement('span');
+                                          span.className = 'text-slate-500 text-sm';
+                                          span.innerText = 'Ảnh không khả dụng';
+                                          target.parentElement.appendChild(span);
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                                <div className="text-sm">
+                                  <div className="text-slate-400">Customer: <span className="text-slate-200 font-medium">{session.customerName || 'N/A'}</span></div>
+                                  <div className="text-slate-400">CCCD Number: <span className="text-slate-200 font-mono">{session.cccdNumber || 'N/A'}</span></div>
+                                  <div className="text-slate-400">Session ID: <span className="text-slate-200 font-mono">{session.sessionId}</span></div>
+                                </div>
+                                
+                                {session.status === 'MANUAL_REVIEW' && (
+                                  <div className="flex gap-3 w-full md:w-auto">
+                                    <button
+                                      disabled={actionId === session.sessionId}
+                                      onClick={() => void reviewSession(session, 'approve')}
+                                      className="flex-1 md:flex-none px-6 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50 rounded-lg font-bold disabled:opacity-50 transition-colors"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      disabled={actionId === session.sessionId}
+                                      onClick={() => void reviewSession(session, 'reject')}
+                                      className="flex-1 md:flex-none px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 rounded-lg font-bold disabled:opacity-50 transition-colors"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Agent Analysis Status Banner */}
+                              {session.agentFinding ? (
                             <div className={`flex items-center gap-3 p-4 rounded-lg border ${session.status === 'APPROVED' ? 'bg-emerald-500/10 border-emerald-500/30' : session.status === 'REJECTED' ? 'bg-red-500/10 border-red-500/30' : 'bg-orange-500/10 border-orange-500/30'}`}>
                               <span className="text-2xl">🤖</span>
                               <div className="flex-1">
@@ -385,6 +503,8 @@ export const KycVerificationCenter: React.FC = () => {
                               )}
                             </div>
                           </div>
+                          </>
+                          )}
                         </div>
                       </td>
                     </tr>
