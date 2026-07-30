@@ -10,6 +10,9 @@ import {
   CreditCard,
   Lock,
   RefreshCw,
+  Bot,
+  BarChart3,
+  Eye,
 } from 'lucide-react';
 import { apiList, apiRequest, formatApiTimestamp, newestFirst, parseJson } from '../api';
 
@@ -204,7 +207,7 @@ export const KycVerificationCenter: React.FC = () => {
                                   : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700'
                               }`}
                             >
-                              {reviewMode === 'manual' ? '🔍 Manual Review Mode' : '📊 Agent Analysis'}
+                              {reviewMode === 'manual' ? <><Eye className="w-4 h-4" /> Manual Review Mode</> : <><BarChart3 className="w-4 h-4" /> Agent Analysis</>}
                             </button>
                           </div>
 
@@ -314,7 +317,7 @@ export const KycVerificationCenter: React.FC = () => {
                               {/* Agent Analysis Status Banner */}
                               {session.agentFinding ? (
                             <div className={`flex items-center gap-3 p-4 rounded-lg border ${session.status === 'APPROVED' ? 'bg-emerald-500/10 border-emerald-500/30' : session.status === 'REJECTED' ? 'bg-red-500/10 border-red-500/30' : 'bg-orange-500/10 border-orange-500/30'}`}>
-                              <span className="text-2xl">🤖</span>
+                              <Bot className="w-6 h-6 text-cyan-400" />
                               <div className="flex-1">
                                 <h3 className={`font-semibold ${session.status === 'APPROVED' ? 'text-emerald-400' : session.status === 'REJECTED' ? 'text-red-400' : 'text-orange-400'}`}>Deepfake Inspector Agent — Analysis Complete</h3>
                                 <p className="text-xs text-slate-400">Analysis completed at {formatApiTimestamp(session.agentFinding.timestamp || session.updatedAt || session.createdAt || '')}</p>
