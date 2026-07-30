@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   RefreshCw,
+  Unlock,
 } from 'lucide-react';
 import { TransactionGraphViewer } from './TransactionGraphViewer';
 import { apiList, apiRequest, newestFirst, normalizeAmlAlert } from '../api';
@@ -68,6 +69,20 @@ export const AmlAlertsDashboard: React.FC = () => {
       await loadAlerts();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to escalate this AML alert.');
+    } finally {
+      setActionId('');
+    }
+  };
+
+  const unfreezeAccount = async (accountNumber: string) => {
+    setActionId(accountNumber);
+    setMessage('');
+    setError('');
+    try {
+      await apiRequest(`/aml/unfreeze/${encodeURIComponent(accountNumber)}`, { method: 'POST' });
+      setMessage(`Account ${accountNumber} has been unfrozen.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to unfreeze account.');
     } finally {
       setActionId('');
     }
@@ -284,6 +299,13 @@ export const AmlAlertsDashboard: React.FC = () => {
                           Escalate to STR
                         </button>
                       )}
+                      <button
+                        disabled={actionId === alert.primaryAccountNumber}
+                        onClick={() => void unfreezeAccount(alert.primaryAccountNumber)}
+                        className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <Unlock size={16} /> Unfreeze Account
+                      </button>
                     </div>
                     {showGraphId === alert.alertId && (
                       <div>
