@@ -58,11 +58,21 @@ export async function apiList<T>(path: string): Promise<T[]> {
   return payload as T[];
 }
 
-export const newestFirst = <T extends { createdAt?: string; generatedAt?: string; updatedAt?: string }>(
+export const newestFirst = <T extends {
+  id?: string | number;
+  createdAt?: string;
+  generatedAt?: string;
+  updatedAt?: string;
+}>(
   values: T[],
 ) => [...values].sort((a, b) => {
-  const aTime = new Date(a.updatedAt || a.generatedAt || a.createdAt || 0).getTime() || 0;
-  const bTime = new Date(b.updatedAt || b.generatedAt || b.createdAt || 0).getTime() || 0;
+  const aId = Number(a.id);
+  const bId = Number(b.id);
+  if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) {
+    return bId - aId;
+  }
+  const aTime = apiDate(a.updatedAt || a.generatedAt || a.createdAt || 0).getTime() || 0;
+  const bTime = apiDate(b.updatedAt || b.generatedAt || b.createdAt || 0).getTime() || 0;
   return bTime - aTime;
 });
 
@@ -76,13 +86,26 @@ export const parseJson = <T>(value: unknown, fallback: T): T => {
   }
 };
 
-const isoTimestamp = (value: unknown) => {
+export const apiDate = (value: unknown) => {
   if (typeof value === 'number') {
-    return new Date(value < 10_000_000_000 ? value * 1000 : value).toISOString();
+    return new Date(value < 10_000_000_000 ? value * 1000 : value);
   }
-  const parsed = new Date(String(value || ''));
-  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : new Date(0).toISOString();
+  const raw = String(value || '');
+  const normalized = /^\d{4}-\d{2}-\d{2}T/.test(raw)
+    && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+    ? `${raw}Z`
+    : raw;
+  const parsed = new Date(normalized);
+  return Number.isFinite(parsed.getTime()) ? parsed : new Date(0);
 };
+
+export const formatApiTimestamp = (value: unknown) => {
+  if (!value || value === 'never') return 'No activity recorded';
+  const parsed = apiDate(value);
+  return parsed.getTime() === 0 ? String(value) : parsed.toLocaleString();
+};
+
+const isoTimestamp = (value: unknown) => apiDate(value).toISOString();
 
 export const normalizeRiskScore = (value: unknown) => {
   const score = Number(value) || 0;

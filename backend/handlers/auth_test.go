@@ -714,6 +714,41 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 	})
 
+	t.Run("Validated Session Forwards Trusted Operator Identity", func(t *testing.T) {
+		setupTestStores()
+		validToken := "operator-forwarding-token"
+		authMu.Lock()
+		sessionStore[validToken] = sessionData{
+			UID:       "10001",
+			Username:  "compliance.operator",
+			IPAddress: "192.0.2.100",
+			ExpiresAt: time.Now().Add(1 * time.Hour),
+		}
+		authMu.Unlock()
+
+		var forwardedOperator string
+		operatorHandler := AuthMiddleware(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				forwardedOperator = r.Header.Get("X-TrueTrace-Operator")
+				w.WriteHeader(http.StatusOK)
+			},
+		))
+		req := httptest.NewRequest("GET", "/api/str", nil)
+		req.Header.Set("X-TrueTrace-Operator", "spoofed-user")
+		req.AddCookie(&http.Cookie{Name: "session_token", Value: validToken})
+		req.RemoteAddr = "192.0.2.100:1234"
+		w := httptest.NewRecorder()
+
+		operatorHandler.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d", w.Code)
+		}
+		if forwardedOperator != "compliance.operator" {
+			t.Fatalf("Expected validated operator, got %q", forwardedOperator)
+		}
+	})
+
 	t.Run("Valid Session Pass-through - PostgreSQL", func(t *testing.T) {
 		setupTestStores()
 		db, _ := sql.Open("mock_driver", "mock")

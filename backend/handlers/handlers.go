@@ -11,12 +11,16 @@ import (
 )
 
 var BackendURL = "http://localhost:8080"
+var AgentEngineURL = "http://localhost:8081"
 var BackendInternalToken string
 var backendHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 func init() {
 	if url := os.Getenv("BACKEND_URL"); url != "" {
 		BackendURL = url
+	}
+	if url := os.Getenv("AGENT_ENGINE_URL"); url != "" {
+		AgentEngineURL = url
 	}
 	BackendInternalToken = os.Getenv("TRUETRACE_SECURITY_SYNC_TOKEN")
 }
@@ -182,7 +186,53 @@ func GetComplianceStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAgentStatuses(w http.ResponseWriter, r *http.Request) {
-	proxyRequest(w, r, "/api/agents/status")
+	targetURL := strings.TrimRight(BackendURL, "/") + "/api/agents/status"
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, targetURL, nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to create agent status request"})
+		return
+	}
+	if BackendInternalToken != "" {
+		req.Header.Set("X-TrueTrace-Internal-Token", BackendInternalToken)
+	}
+	if operator := r.Header.Get("X-TrueTrace-Operator"); operator != "" {
+		req.Header.Set("X-TrueTrace-Operator", operator)
+	}
+	resp, err := backendHTTPClient.Do(req)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Failed to load persisted agent activity"})
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+		_, _ = io.Copy(w, resp.Body)
+		return
+	}
+
+	var statuses []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&statuses); err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "Backend returned invalid agent status data"})
+		return
+	}
+	runtimeStatus := "ERROR"
+	healthSource := "agent-engine /health unreachable"
+	healthURL := strings.TrimRight(AgentEngineURL, "/") + "/health"
+	healthReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, healthURL, nil)
+	if err == nil {
+		if healthResp, healthErr := backendHTTPClient.Do(healthReq); healthErr == nil {
+			defer healthResp.Body.Close()
+			if healthResp.StatusCode == http.StatusOK {
+				runtimeStatus = "RUNNING"
+				healthSource = "agent-engine /health"
+			}
+		}
+	}
+	for _, status := range statuses {
+		status["status"] = runtimeStatus
+		status["healthSource"] = healthSource
+	}
+	writeJSON(w, http.StatusOK, statuses)
 }
 
 // Agent logs/restarts are not simulated. If Spring does not expose the action,

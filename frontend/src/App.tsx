@@ -137,7 +137,7 @@ export default function App() {
         <div className="p-4 border-t border-slate-800 bg-slate-950/50">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-            <div className="text-xs font-medium text-slate-300">SYSTEM SECURED</div>
+            <div className="text-xs font-medium text-slate-300">LIVE API DATA</div>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
             <Clock size={12} />

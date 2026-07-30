@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -55,7 +56,6 @@ func TestComplianceListsProxySpringSourceOfTruth(t *testing.T) {
 		{"AML", "/api/aml?status=OPEN", "/api/aml/alerts", GetAmlAlerts},
 		{"STR", "/api/str?status=DRAFT", "/api/str/reports", GetStrReports},
 		{"stats", "/api/compliance/stats", "/api/compliance/stats", GetComplianceStats},
-		{"agents", "/api/agents/status", "/api/agents/status", GetAgentStatuses},
 	}
 
 	for _, test := range tests {
@@ -88,6 +88,53 @@ func TestComplianceListsProxySpringSourceOfTruth(t *testing.T) {
 				t.Fatalf("upstream body not preserved: %q", recorder.Body.String())
 			}
 		})
+	}
+}
+
+func TestAgentStatusesCombinePersistedCountsWithRuntimeHealth(t *testing.T) {
+	var statusRequest proxyCapture
+	withBackend(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+			return
+		}
+		statusRequest = captureRequest(r)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{
+			"agentId":"money-trail",
+			"agentName":"Transactions Graph Explorer",
+			"status":"UNKNOWN",
+			"processedCount":9,
+			"lastActivity":"2026-07-30T00:00:00"
+		}]`))
+	})
+	oldAgentEngineURL := AgentEngineURL
+	AgentEngineURL = BackendURL
+	t.Cleanup(func() { AgentEngineURL = oldAgentEngineURL })
+
+	request := httptest.NewRequest(http.MethodGet, "/api/agents/status", nil)
+	request.Header.Set("X-TrueTrace-Operator", "compliance.operator")
+	recorder := httptest.NewRecorder()
+
+	GetAgentStatuses(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if statusRequest.path != "/api/agents/status" ||
+		statusRequest.internalToken != "integration-test-token" {
+		t.Fatalf("unexpected persisted-status request: %+v", statusRequest)
+	}
+	var payload []map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("invalid response: %v", err)
+	}
+	if len(payload) != 1 ||
+		payload[0]["status"] != "RUNNING" ||
+		payload[0]["healthSource"] != "agent-engine /health" ||
+		payload[0]["processedCount"] != float64(9) {
+		t.Fatalf("unexpected combined status: %+v", payload)
 	}
 }
 

@@ -18,6 +18,31 @@ export interface KycSession {
   selfieImagePath?: string;
   idFrontImagePath?: string;
   idBackImagePath?: string;
+  agentFinding?: {
+    risk_score?: number;
+    cccd_validation?: {
+      valid?: boolean;
+      province?: string;
+      gender?: string;
+      birth_year?: number;
+      error?: string;
+    };
+    vision_analysis?: {
+      provider?: string;
+      deepfake_probability?: number;
+      face_match_score?: number;
+      liveness_score?: number;
+      signals?: string[];
+      model_explanation?: string;
+    };
+    evidence?: Record<string, { present?: boolean; byte_size?: number; sha256?: string }>;
+    identity_registry?: {
+      status?: string;
+      matched?: boolean | null;
+      source?: string;
+    };
+    timestamp?: string;
+  };
 }
 
 export interface AmlAlert {
@@ -114,6 +139,5 @@ export interface AgentStatus {
   status: 'RUNNING' | 'IDLE' | 'ERROR';
   lastActivity: string;
   processedCount: number;
-  errorCount: number;
-  queueDepth: number;
+  healthSource?: string;
 }

@@ -4,6 +4,8 @@ import { KycVerificationCenter } from './KycVerificationCenter';
 import { AmlAlertsDashboard } from './AmlAlertsDashboard';
 import { StrReportManager } from './StrReportManager';
 import { ComplianceOverview } from './ComplianceOverview';
+import { AgentMonitor } from './AgentMonitor';
+import { apiDate, newestFirst } from '../api';
 
 const jsonResponse = (payload: unknown, status = 200) => ({
   ok: status >= 200 && status < 300,
@@ -84,6 +86,20 @@ describe('five-minute demo UI flow', () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  test('normalizes unzoned Spring timestamps as UTC', () => {
+    expect(apiDate('2026-07-29T17:29:30').toISOString())
+      .toBe('2026-07-29T17:29:30.000Z');
+  });
+
+  test('keeps newly inserted records above legacy rows with inconsistent timestamps', () => {
+    const sorted = newestFirst([
+      { id: 41, createdAt: '2026-07-30T07:07:28Z' },
+      { id: 42, createdAt: '2026-07-30T00:29:30Z' },
+    ]);
+
+    expect(sorted.map((item) => item.id)).toEqual([42, 41]);
   });
 
   test('KYC search is real and approve persists through the API', async () => {
@@ -218,5 +234,27 @@ describe('five-minute demo UI flow', () => {
     render(<ComplianceOverview />);
     expect(await screen.findByText('50.0%')).toBeInTheDocument();
     expect(screen.getByText('RUNNING')).toBeInTheDocument();
+  });
+
+  test('agent monitor shows live health without fake restart or log actions', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      jsonResponse([{
+        agentId: 'money-trail',
+        agentName: 'Transactions Graph Explorer',
+        status: 'RUNNING',
+        lastActivity: '2026-07-30T00:00:00Z',
+        processedCount: 9,
+        healthSource: 'agent-engine /health',
+      }]));
+
+    render(<AgentMonitor />);
+
+    expect(await screen.findByText('Persisted Records')).toBeInTheDocument();
+    expect(screen.getByText(/Health source: agent-engine \/health/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View Logs' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh health' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 });

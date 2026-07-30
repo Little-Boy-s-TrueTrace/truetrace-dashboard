@@ -658,8 +658,6 @@ func CheckAuth(w http.ResponseWriter, r *http.Request) {
 		sessionExists = false
 	}
 
-
-
 	if !sessionExists || time.Now().After(sessionExpiresAt) {
 		if sessionExists && time.Now().After(sessionExpiresAt) {
 			// Clean expired session
@@ -777,13 +775,15 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		var sessionExpiresAt time.Time
 		var sessionIP string
+		var sessionUsername string
 		var sessionExists bool
 
 		if store.UsePostgres {
-			_, _, dbIp, dbExpiresAt, err := store.GetSQLSession(sessionToken)
+			_, dbUsername, dbIp, dbExpiresAt, err := store.GetSQLSession(sessionToken)
 			if err == nil {
 				sessionExpiresAt = dbExpiresAt
 				sessionIP = dbIp
+				sessionUsername = dbUsername
 				sessionExists = true
 			}
 		} else {
@@ -792,6 +792,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			if exists {
 				sessionExpiresAt = session.ExpiresAt
 				sessionIP = session.IPAddress
+				sessionUsername = session.Username
 				sessionExists = true
 			}
 			authMu.RUnlock()
@@ -803,8 +804,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			log.Printf("[SECURITY ALERT] Session hijacking detected! Session IP: %s, Request IP: %s", sessionIP, ip)
 			sessionExists = false
 		}
-
-
 
 		if !sessionExists || time.Now().After(sessionExpiresAt) {
 			if sessionExists && time.Now().After(sessionExpiresAt) {
@@ -822,6 +821,10 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Downstream Spring requests carry the identity from the already
+		// validated dashboard session. Spring only trusts this header together
+		// with the internal service token added by the proxy.
+		r.Header.Set("X-TrueTrace-Operator", sessionUsername)
 		next.ServeHTTP(w, r)
 	})
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ComplianceStats, AgentStatus, AmlAlert, KycSession } from '../types';
 import { Users, ShieldAlert, AlertTriangle, FileText, Lock, CheckCircle, Activity, Server } from 'lucide-react';
-import { apiList, apiRequest, normalizeAgentStatus, normalizeAmlAlert } from '../api';
+import { apiDate, apiList, apiRequest, formatApiTimestamp, normalizeAgentStatus, normalizeAmlAlert } from '../api';
 
 interface AlertTypeCount {
   type: string;
@@ -80,7 +80,7 @@ export const ComplianceOverview: React.FC = () => {
           const now = new Date();
           if (Array.isArray(sessions)) {
             sessions.forEach((s) => {
-              const d = new Date(s.updatedAt || s.createdAt);
+              const d = apiDate(s.updatedAt || s.createdAt);
               const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
               if (diffDays >= 0 && diffDays < 7) {
                 dailyCounts[6 - diffDays]++;
@@ -189,9 +189,9 @@ export const ComplianceOverview: React.FC = () => {
           <h3 className="text-lg font-medium text-slate-200 mb-6">Daily KYC Submissions (Last 7 Days)</h3>
           <div className="flex items-end gap-2 h-48 mt-4">
             {kycBarHeights.map((pct, i) => (
-              <div key={i} className="flex-1 flex flex-col justify-end items-center group">
+              <div key={i} className="flex-1 h-full flex flex-col justify-end items-center group">
                 <div className="w-full bg-cyan-500/20 hover:bg-cyan-500/40 rounded-t-sm transition-all relative" style={{ height: `${pct}%` }}>
-                  <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-xs py-1 px-2 rounded text-slate-200">{kycDaily[i]}</div>
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-slate-300">{kycDaily[i]}</div>
                 </div>
                 <div className="text-xs text-slate-500 mt-2">D-{6-i}</div>
               </div>
@@ -245,15 +245,11 @@ export const ComplianceOverview: React.FC = () => {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm mt-2">
-              <div className="text-slate-500">Processed</div>
+              <div className="text-slate-500">Persisted records</div>
               <div className="text-slate-300 font-mono text-right">{agent.processedCount}</div>
-              <div className="text-slate-500">Errors</div>
-              <div className="text-slate-300 font-mono text-right">{agent.errorCount}</div>
-              <div className="text-slate-500">Queue Depth</div>
-              <div className="text-slate-300 font-mono text-right">{agent.queueDepth}</div>
             </div>
             <div className="text-xs text-slate-500 mt-2 text-right">
-              Last active: {new Date(agent.lastActivity).toLocaleTimeString()}
+              Last persisted activity: {formatApiTimestamp(agent.lastActivity)}
             </div>
           </div>
         ))}

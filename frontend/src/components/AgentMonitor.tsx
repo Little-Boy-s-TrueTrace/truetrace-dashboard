@@ -1,30 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AgentStatus } from '../types';
-import { Server, Activity, ArrowRight, Zap, RefreshCw, Cpu, Database, Network, X } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+import { Server, Activity, ArrowRight, Zap, RefreshCw, Cpu, Database, Network } from 'lucide-react';
+import { apiList, formatApiTimestamp, normalizeAgentStatus } from '../api';
 
 export const AgentMonitor: React.FC = () => {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // State for the modal
-  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
-  const [selectedAgentLogs, setSelectedAgentLogs] = useState<{agentId: string, logs: string[]} | null>(null);
+  const [error, setError] = useState('');
+
+  const fetchAgents = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const data = await apiList<AgentStatus>('/agents/status');
+      setAgents(data.map((agent) => ({
+        ...agent,
+        status: normalizeAgentStatus(agent.status),
+      })));
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load agent runtime health.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchAgents = () => {
-      fetch(`${API_URL}/agents/status`)
-        .then(res => res.json())
-        .then(data => setAgents(data || []))
-        .catch(err => console.error(err))
-        .finally(() => setLoading(false));
-    };
-    
-    fetchAgents();
-    const interval = setInterval(fetchAgents, 5000); // Poll every 5s
+    void fetchAgents();
+    const interval = setInterval(() => void fetchAgents(), 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAgents]);
 
   const getAgentIcon = (name: string) => {
     if (name.includes('KYC')) return <Zap className="w-8 h-8 text-cyan-400" />;
@@ -45,10 +49,21 @@ export const AgentMonitor: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
           <Cpu className="text-cyan-400" /> AI Agent Monitor
         </h1>
-        <button onClick={() => window.alert('Force sync initiated.')} className="flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400">
-          <RefreshCw size={16} /> Force Sync
+        <button
+          onClick={() => void fetchAgents(true)}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh health
         </button>
       </div>
+      <p className="text-xs text-slate-500 -mt-5">
+        Runtime state comes from the agent-engine health endpoint; counters and timestamps come from persisted compliance records.
+      </p>
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       {/* Agents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -80,55 +95,16 @@ export const AgentMonitor: React.FC = () => {
             <div className="space-y-4 relative z-10">
               <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Items Processed</div>
+                  <div className="text-xs text-slate-500 mb-1">Persisted Records</div>
                   <div className="text-2xl font-mono text-slate-200">{agent.processedCount.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Queue Depth</div>
-                  <div className="text-2xl font-mono text-cyan-400">{agent.queueDepth}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Error Count</div>
-                  <div className={`text-xl font-mono ${agent.errorCount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{agent.errorCount}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Last Activity</div>
-                  <div className="text-sm text-slate-300 mt-1">{new Date(agent.lastActivity).toLocaleTimeString()}</div>
+                  <div className="text-xs text-slate-500 mb-1">Last Persisted Activity</div>
+                  <div className="text-sm text-slate-300 mt-1">{formatApiTimestamp(agent.lastActivity)}</div>
                 </div>
               </div>
-
-              <div className="flex justify-end gap-2">
-                <button 
-                  onClick={() => {
-                    fetch(`${API_URL}/agents/${agent.agentId}/logs`)
-                      .then(res => res.json())
-                      .then(data => {
-                        if (data.logs) {
-                          setSelectedAgentLogs({ agentId: agent.agentId, logs: data.logs });
-                          setIsLogModalOpen(true);
-                        } else {
-                          window.alert(data.error || 'Failed to fetch logs');
-                        }
-                      })
-                      .catch(() => window.alert('Error fetching logs'));
-                  }} 
-                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
-                >
-                  View Logs
-                </button>
-                <button 
-                  onClick={() => {
-                    fetch(`${API_URL}/agents/${agent.agentId}/restart`, { method: 'POST' })
-                      .then(res => res.json())
-                      .then(data => {
-                        window.alert(data.message || data.error || 'Restart command sent');
-                      })
-                      .catch(() => window.alert('Error sending restart command'));
-                  }} 
-                  className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
-                >
-                  Restart
-                </button>
+              <div className="text-[11px] text-slate-500 text-right">
+                Health source: {agent.healthSource || 'not reported'}
               </div>
             </div>
           </div>
@@ -188,44 +164,6 @@ export const AgentMonitor: React.FC = () => {
         </div>
       </div>
 
-      {/* Logs Modal */}
-      {isLogModalOpen && selectedAgentLogs && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-slate-700 bg-slate-800/80">
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <Activity className="text-cyan-400 w-5 h-5" />
-                Logs: {selectedAgentLogs.agentId}
-              </h3>
-              <button 
-                onClick={() => { setIsLogModalOpen(false); setSelectedAgentLogs(null); }}
-                className="text-slate-400 hover:text-slate-200 transition-colors p-1"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-4 bg-slate-900 overflow-y-auto max-h-[60vh]">
-              {selectedAgentLogs.logs.length > 0 ? (
-                <div className="font-mono text-sm text-slate-300 space-y-1">
-                  {selectedAgentLogs.logs.map((log, i) => (
-                    <div key={i} className="break-all">{log}</div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-slate-500 italic">No logs available.</div>
-              )}
-            </div>
-            <div className="p-4 border-t border-slate-700 bg-slate-800 flex justify-end">
-              <button 
-                onClick={() => { setIsLogModalOpen(false); setSelectedAgentLogs(null); }}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
