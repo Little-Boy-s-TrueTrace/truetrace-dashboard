@@ -209,6 +209,7 @@ export function normalizeAmlAlert(raw: Record<string, any>): AmlAlert {
     transactionChain,
     graphData,
     createdAt: isoTimestamp(raw.createdAt || raw.timestamp),
+    accountStatus: raw.accountStatus ? String(raw.accountStatus) : undefined,
     resolvedAt: raw.resolvedAt ? isoTimestamp(raw.resolvedAt) : undefined,
     resolvedBy: raw.resolvedBy,
     agentFinding: parseJson<Record<string, unknown>>(raw.agentFindingJson || raw.agentFinding, {}),

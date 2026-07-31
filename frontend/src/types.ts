@@ -60,6 +60,7 @@ export interface AmlAlert {
   transactionChain: TransactionChainItem[];
   graphData: GraphData;
   createdAt: string;
+  accountStatus?: string;
   resolvedAt?: string;
   resolvedBy?: string;
   agentFinding?: Record<string, unknown>;

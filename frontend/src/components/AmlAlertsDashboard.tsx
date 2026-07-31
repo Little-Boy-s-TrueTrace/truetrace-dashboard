@@ -33,7 +33,19 @@ export const AmlAlertsDashboard: React.FC = () => {
     if (showSpinner) setLoading(true);
     try {
       const raw = await apiList<Record<string, unknown>>('/aml');
-      setAlerts(newestFirst(raw.map((item) => normalizeAmlAlert(item))));
+      const normalized = raw.map((item) => normalizeAmlAlert(item));
+      setAlerts(newestFirst(normalized));
+      setFrozenAccounts(prev => {
+        const next = new Set(prev);
+        normalized.forEach(alert => {
+          if (alert.accountStatus === 'FROZEN') {
+            next.add(alert.primaryAccountNumber);
+          } else if (alert.accountStatus === 'ACTIVE') {
+            next.delete(alert.primaryAccountNumber);
+          }
+        });
+        return next;
+      });
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load AML alerts.');
@@ -77,25 +89,25 @@ export const AmlAlertsDashboard: React.FC = () => {
   };
 
   const toggleFreeze = async (accountNumber: string) => {
-    const isFrozen = !frozenAccounts.has(accountNumber);
+    const currentlyFrozen = frozenAccounts.has(accountNumber);
+    const action = currentlyFrozen ? 'unfreeze' : 'freeze';
     setActionId(accountNumber);
     setMessage('');
     setError('');
     try {
-      const action = isFrozen ? 'freeze' : 'unfreeze';
       await apiRequest(`/aml/${action}/${encodeURIComponent(accountNumber)}`, { method: 'POST' });
       setFrozenAccounts(prev => {
         const next = new Set(prev);
-        if (isFrozen) {
+        if (currentlyFrozen) {
           next.delete(accountNumber);
         } else {
           next.add(accountNumber);
         }
         return next;
       });
-      setMessage(`Account ${accountNumber} has been ${isFrozen ? 'frozen' : 'unfrozen'}.`);
+      setMessage(`Account ${accountNumber} has been ${currentlyFrozen ? 'unfrozen' : 'frozen'}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Unable to ${isFrozen ? 'freeze' : 'unfreeze'} account.`);
+      setError(err instanceof Error ? err.message : `Unable to ${action} account.`);
     } finally {
       setActionId('');
     }
@@ -313,18 +325,18 @@ export const AmlAlertsDashboard: React.FC = () => {
                         </button>
                       )}
                       {(() => {
-                        const isUnfrozen = frozenAccounts.has(alert.primaryAccountNumber);
+                        const isFrozen = frozenAccounts.has(alert.primaryAccountNumber);
                         return (
                           <button
                             disabled={actionId === alert.primaryAccountNumber}
                             onClick={() => void toggleFreeze(alert.primaryAccountNumber)}
                             className={`px-4 py-2 rounded-lg font-medium disabled:opacity-50 flex items-center gap-2 ${
-                              isUnfrozen
-                                ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50'
-                                : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50'
+                              isFrozen
+                                ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/50'
+                                : 'bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50'
                             }`}
                           >
-                            {isUnfrozen ? <><Lock size={16} /> Freeze Account</> : <><Unlock size={16} /> Unfreeze Account</>}
+                            {isFrozen ? <><Unlock size={16} /> Unfreeze Account</> : <><Lock size={16} /> Freeze Account</>}
                           </button>
                         );
                       })()}
