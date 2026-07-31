@@ -41,7 +41,7 @@ describe('ComplianceOverview Component', () => {
   });
 
   it('renders summary cards and title', async () => {
-    render(<ComplianceOverview onNavigate={vi.fn()} />);
+    render(<ComplianceOverview />);
     await waitFor(() => {
       expect(screen.getByText(/Compliance Command Center/i)).toBeInTheDocument();
       expect(screen.getByText('KYC Processed')).toBeInTheDocument();
