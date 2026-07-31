@@ -119,7 +119,7 @@ export const KycVerificationCenter: React.FC = () => {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, CCCD, session…"
+              placeholder="Search name, Citizen ID, session…"
               className="bg-slate-800 border border-slate-700 text-sm rounded-lg pl-9 pr-4 py-2 text-slate-200 focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -162,7 +162,7 @@ export const KycVerificationCenter: React.FC = () => {
             <thead className="bg-slate-800/80 sticky top-0 z-10 text-xs uppercase text-slate-400">
               <tr>
                 <th className="p-4 font-medium">Customer Name</th>
-                <th className="p-4 font-medium">CCCD</th>
+                <th className="p-4 font-medium">Citizen ID</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium">Deepfake Score</th>
                 <th className="p-4 font-medium">Face Match</th>
@@ -239,7 +239,7 @@ export const KycVerificationCenter: React.FC = () => {
                                 </div>
                                 {/* Column 2: ID Front */}
                                 <div className="flex flex-col gap-2">
-                                  <h4 className="text-sm font-medium text-slate-300">CCCD Mặt trước</h4>
+                                  <h4 className="text-sm font-medium text-slate-300">Citizen ID Front</h4>
                                   <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-2 flex items-center justify-center min-h-[300px]">
                                     <img 
                                       src={`/api/kyc/${session.sessionId}/evidence/id-front`} 
@@ -262,7 +262,7 @@ export const KycVerificationCenter: React.FC = () => {
                                 </div>
                                 {/* Column 3: ID Back */}
                                 <div className="flex flex-col gap-2">
-                                  <h4 className="text-sm font-medium text-slate-300">CCCD Mặt sau</h4>
+                                  <h4 className="text-sm font-medium text-slate-300">Citizen ID Back</h4>
                                   <div className="bg-slate-800/80 rounded-xl border border-slate-700 p-2 flex items-center justify-center min-h-[300px]">
                                     <img 
                                       src={`/api/kyc/${session.sessionId}/evidence/id-back`} 
@@ -288,7 +288,7 @@ export const KycVerificationCenter: React.FC = () => {
                               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div className="text-sm">
                                   <div className="text-slate-400">Customer: <span className="text-slate-200 font-medium">{session.customerName || 'N/A'}</span></div>
-                                  <div className="text-slate-400">CCCD Number: <span className="text-slate-200 font-mono">{session.cccdNumber || 'N/A'}</span></div>
+                                  <div className="text-slate-400">Citizen ID Number: <span className="text-slate-200 font-mono">{session.cccdNumber || 'N/A'}</span></div>
                                   <div className="text-slate-400">Session ID: <span className="text-slate-200 font-mono">{session.sessionId}</span></div>
                                 </div>
                                 
@@ -328,7 +328,7 @@ export const KycVerificationCenter: React.FC = () => {
                               <RefreshCw className="w-6 h-6 text-blue-400 animate-spin" />
                               <div className="flex-1">
                                 <h3 className="font-semibold text-blue-400">Agent is processing...</h3>
-                                <p className="text-xs text-slate-400">Awaiting deepfake detection and CCCD validation results</p>
+                                <p className="text-xs text-slate-400">Awaiting deepfake detection and Citizen ID validation results</p>
                               </div>
                             </div>
                           )}
@@ -385,11 +385,11 @@ export const KycVerificationCenter: React.FC = () => {
                               )}
                             </div>
 
-                            {/* CCCD & AI Summary */}
+                            {/* Citizen ID & AI Summary */}
                             <div className="flex flex-col gap-6">
                               <div className="bg-slate-800/80 rounded-lg border border-slate-700 p-4">
                                 <h4 className="text-sm font-medium text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                  <CheckCircle className="w-4 h-4" /> CCCD Validation
+                                  <CheckCircle className="w-4 h-4" /> Citizen ID Validation
                                 </h4>
                                 {session.agentFinding?.cccd_validation ? (
                                   <div className="space-y-2">
@@ -439,7 +439,7 @@ export const KycVerificationCenter: React.FC = () => {
                                     if (dfProb >= 0.5) issues.push(`High deepfake probability (${(dfProb * 100).toFixed(0)}%)`);
                                     if (faceMatch < 0.8) issues.push(`Low face match (${(faceMatch * 100).toFixed(0)}%)`);
                                     if (liveness < 0.8) issues.push(`Low liveness (${(liveness * 100).toFixed(0)}%)`);
-                                    if (cccd && !cccd.valid) issues.push(`CCCD validation failed: ${cccd.error || 'invalid format'}`);
+                                    if (cccd && !cccd.valid) issues.push(`Citizen ID validation failed: ${cccd.error || 'invalid format'}`);
                                     if (issues.length === 0) {
                                       return <span className="text-emerald-300">All biometric checks passed. Identity verified. Agent automatically approved onboarding.</span>;
                                     }

@@ -221,7 +221,7 @@ export const StrReportManager: React.FC = () => {
                         <h3 className="font-bold text-lg mb-2 text-slate-900">II. SUSPECTED CUSTOMER INFORMATION</h3>
                         <div className="grid grid-cols-2 gap-2 pl-4">
                           <div className="font-medium">Full name:</div><div>{subjectName || 'Not provided in evidence package'}</div>
-                          <div className="font-medium">ID/CCCD number:</div><div>{subjectCccd || 'Not provided in evidence package'}</div>
+                          <div className="font-medium">ID/Citizen ID number:</div><div>{subjectCccd || 'Not provided in evidence package'}</div>
                           <div className="font-medium">Account number:</div><div>{account || 'Not provided in evidence package'}</div>
                           <div className="font-medium">Total flagged value:</div>
                           <div className="font-bold text-red-600">{formatMoney(report.totalAmount, report.currency)}</div>
