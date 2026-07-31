@@ -158,7 +158,7 @@ jobs:
     name: Build & Push Dashboard Images to Docker Hub
     needs: [go-test-build, vite-client-build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.DOCKER_HUB_USERNAME != ''
 
     steps:
     - name: Checkout Code
