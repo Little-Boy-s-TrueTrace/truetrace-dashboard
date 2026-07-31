@@ -65,7 +65,7 @@ jobs:
     - name: Build Frontend Application
       run: |
         cd frontend
-        npm test -- --run
+        npm test
         npm run lint
         npm run build
 
@@ -73,7 +73,7 @@ jobs:
     name: Deploy React/Vite Client
     needs: [go-test-build, vite-client-build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true'
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true' }}
 
     steps:
     - name: Checkout Code
@@ -115,7 +115,7 @@ jobs:
     name: Build Docker Image, Push to ECR & Deploy to ECS
     needs: go-test-build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true'
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.AWS_DEPLOY_ENABLED == 'true' }}
 
     steps:
     - name: Checkout Code
@@ -158,7 +158,7 @@ jobs:
     name: Build & Push Dashboard Images to Docker Hub
     needs: [go-test-build, vite-client-build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.DOCKER_HUB_USERNAME != ''
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && secrets.DOCKER_HUB_USERNAME != '' }}
 
     steps:
     - name: Checkout Code
