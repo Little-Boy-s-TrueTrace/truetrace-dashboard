@@ -8,15 +8,15 @@ RUN npm run build
 
 # Production stage
 FROM nginx:alpine
-# Copy built files to /usr/share/nginx/html/soc to match Vite base: '/soc/'
-COPY --from=builder /app/dist /usr/share/nginx/html/soc
+# Copy built files to /usr/share/nginx/html/monitor to match Vite base: '/monitor/'
+COPY --from=builder /app/dist /usr/share/nginx/html/monitor
 
-# Configure Nginx to serve the SPA on port 3001 under the /soc/ path
+# Configure Nginx to serve the SPA on port 3001 under the /monitor/ path
 RUN echo 'server { \
     listen 3001; \
-    location /soc/ { \
-        alias /usr/share/nginx/html/soc/; \
-        try_files $uri $uri/ /soc/index.html; \
+    location /monitor/ { \
+        root /usr/share/nginx/html; \
+        try_files $uri $uri/ /monitor/index.html; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
